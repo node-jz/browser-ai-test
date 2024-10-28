@@ -4,10 +4,20 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "start:ui": "pnpm --filter ui dev",
+    "start:api": "pnpm --filter api start:dev",
+    "start": "pnpm run start:ui & pnpm run start:api",
+    "build": "pnpm recursive run build",
+    "test": "pnpm recursive run test",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "prepare": "husky"
+    "prepare": "husky",
+    "lint-staged": {
+      "**/*.{js,ts,tsx}": [
+        "eslint --fix --config ./.eslint.config.js"
+      ],
+      "**/*": "prettier --write --ignore-unknown"
+    }
   },
   "keywords": [],
   "author": "",

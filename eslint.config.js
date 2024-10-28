@@ -5,9 +5,17 @@ import tseslint from "typescript-eslint";
 export default [
   {
     files: ["**/*.{js,mjs,cjs,ts}"],
-    ignores: ["public", "dist", ".husky", ".vscode", "node_modules"],
   },
   { languageOptions: { globals: { ...globals.browser, ...globals.node } } },
   pluginJs.configs.recommended,
   ...tseslint.configs.recommended,
+  {
+    ignores: [
+      "**/public/**",
+      "**/dist/**",
+      ".husky",
+      ".vscode",
+      "**/node_modules/**",
+    ],
+  },
 ];
