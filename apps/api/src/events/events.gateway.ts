@@ -28,7 +28,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage("subscribeToSession")
   async handleSubscribe(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { sessionId: string }
+    @MessageBody() data: { sessionId: string },
   ) {
     const { sessionId } = data;
     client.join(sessionId);
@@ -37,7 +37,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   async notifyEvent(
     sessionId: string,
-    event: Record<string, string | number | boolean>
+    event: Record<string, string | number | boolean>,
   ) {
     this.server.to(sessionId).emit("sessionEvent", event);
   }
