@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Param, Body } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post } from "@nestjs/common";
+
 import { PageService } from "./page.service";
 
 @Controller("sessions/:sessionId/page")
@@ -62,5 +63,10 @@ export class PageController {
   async getHtml(@Param("sessionId") sessionId: string) {
     const result = await this.pageService.getHtml(sessionId);
     return { html: result };
+  }
+
+  @Get("markdown")
+  async getMarkdown(@Param("sessionId") sessionId: string) {
+    return this.pageService.pageToMarkdown(sessionId);
   }
 }

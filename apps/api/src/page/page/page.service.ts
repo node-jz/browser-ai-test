@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { Page } from "playwright";
 import { BrowserService } from "src/browser/browser/browser.service";
+
+import { ScrapeService } from "./scrape.service";
 import { EventsGateway } from "src/events/events.gateway";
 
 type FormField = {
@@ -21,6 +23,7 @@ type Form = {
 export class PageService {
   constructor(
     private readonly browserService: BrowserService,
+    private readonly scrapeService: ScrapeService,
     private readonly eventsGateway: EventsGateway,
   ) {}
 
@@ -33,9 +36,12 @@ export class PageService {
     if (pages.length === 0) {
       throw new NotFoundException("No pages open in this session");
     }
-    this.eventsGateway.notifyEvent(sessionId, {
-      event: "pageLoaded",
-      url: pages[0].url,
+    this.eventsGateway.notifyEvent("progress", sessionId, {
+      website: pages[0].url.toString(),
+      step: "Page Loaded",
+    });
+    this.eventsGateway.notifyEvent("pageLoaded", sessionId, {
+      url: pages[0].url(),
     });
     return pages[0];
   }
@@ -44,6 +50,14 @@ export class PageService {
     const page = await this.getPage(sessionId);
     return await page.innerHTML("body");
   }
+
+  async pageToMarkdown(
+    sessionId: string,
+  ): Promise<{ text: string; links: { url: string; text: string }[] }> {
+    const page = await this.getPage(sessionId);
+    return this.scrapeService.scrapePage(page);
+  }
+
   async getForms(sessionId: string): Promise<Form[]> {
     const page = await this.getPage(sessionId);
     const forms = await page.$$eval("form", (forms) =>

@@ -13,6 +13,7 @@ export default [
     ignores: [
       "**/public/**",
       "**/dist/**",
+      "**/.svelte-kit/**",
       ".husky",
       ".vscode",
       "**/node_modules/**",

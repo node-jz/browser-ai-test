@@ -10,14 +10,20 @@ import {
 import { Server, Socket } from "socket.io";
 import { BrowserService } from "src/browser/browser/browser.service";
 
-@WebSocketGateway()
+@WebSocketGateway({
+  transports: ["websocket"],
+  namespace: "events",
+  cors: {
+    origin: "*",
+  },
+})
 export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
   constructor(private readonly browserService: BrowserService) {}
 
-  handleConnection(client: Socket) {
+  handleConnection(@ConnectedSocket() client: Socket) {
     console.log(`Client connected: ${client.id}`);
   }
 
@@ -36,9 +42,10 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   async notifyEvent(
+    eventName: string,
     sessionId: string,
-    event: Record<string, string | number | boolean>,
+    data: Record<string, unknown>,
   ) {
-    this.server.to(sessionId).emit("sessionEvent", event);
+    this.server.to(sessionId).emit(eventName, data);
   }
 }

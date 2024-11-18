@@ -1,8 +1,15 @@
-import { Injectable, OnModuleInit, OnModuleDestroy } from "@nestjs/common";
-import { chromium, Browser, BrowserContext } from "playwright";
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from "@nestjs/common";
+import { Browser, BrowserContext, chromium } from "playwright";
 
 @Injectable()
 export class BrowserService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(BrowserService.name);
+
   private browser: Browser;
   private contexts: Map<string, BrowserContext> = new Map();
 
@@ -17,6 +24,8 @@ export class BrowserService implements OnModuleInit, OnModuleDestroy {
   async createContext(sessionId: string): Promise<BrowserContext> {
     const context = await this.browser.newContext();
     this.contexts.set(sessionId, context);
+    this.logger.log(`New Context Created - ${sessionId}`);
+    this.logger.debug(this.contexts.keys.length + " Contexts Open");
     return context;
   }
 
@@ -29,6 +38,9 @@ export class BrowserService implements OnModuleInit, OnModuleDestroy {
     if (context) {
       await context.close();
       this.contexts.delete(sessionId);
+
+      this.logger.log(`Context Deleted - ${sessionId}`);
+      this.logger.debug(this.contexts.keys.length + " Contexts Open");
     }
   }
 }
