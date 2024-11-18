@@ -14,6 +14,7 @@ export default [
       "**/public/**",
       "**/dist/**",
       "**/.svelte-kit/**",
+      "**/build/**",
       ".husky",
       ".vscode",
       "**/node_modules/**",
