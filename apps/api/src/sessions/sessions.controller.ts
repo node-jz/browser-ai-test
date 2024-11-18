@@ -1,4 +1,4 @@
-import { Controller, Post, Delete, Param } from "@nestjs/common";
+import { Controller, Post, Delete, Param, Get } from "@nestjs/common";
 import { SessionsService } from "./sessions/sessions.service";
 
 @Controller("sessions")
@@ -15,5 +15,20 @@ export class SessionsController {
   async deleteSession(@Param("sessionId") sessionId: string) {
     await this.sessionsService.deleteSession(sessionId);
     return { status: "sessionDeleted" };
+  }
+
+  @Get("clear-all")
+  async clearAllSessions() {
+    const sessions = await this.sessionsService.getAllSessions();
+    await this.sessionsService.deleteAllSessions();
+    return {
+      closed: sessions,
+    };
+  }
+
+  @Get("list-all")
+  async getAllSessions() {
+    const sessions = await this.sessionsService.getAllSessions();
+    return { sessions: sessions };
   }
 }

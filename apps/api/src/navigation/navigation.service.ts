@@ -9,7 +9,7 @@ export class NavigationService {
   constructor(private readonly browserService: BrowserService) {}
 
   private async getPage(sessionId: string): Promise<Page> {
-    const context = await this.browserService.getContext(sessionId);
+    const context = this.browserService.getContext(sessionId);
     if (!context) {
       throw new NotFoundException("Session not found");
     }

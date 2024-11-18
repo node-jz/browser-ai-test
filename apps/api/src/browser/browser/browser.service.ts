@@ -29,8 +29,12 @@ export class BrowserService implements OnModuleInit, OnModuleDestroy {
     return context;
   }
 
-  async getContext(sessionId: string): Promise<BrowserContext> {
+  getContext(sessionId: string): BrowserContext {
     return this.contexts.get(sessionId);
+  }
+
+  getAllContexts() {
+    return this.contexts;
   }
 
   async closeContext(sessionId: string): Promise<void> {
