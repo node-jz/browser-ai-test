@@ -181,7 +181,7 @@
 					<!-- Platform and Step Information -->
 					<div class="flex-1">
 						<h2 class="text-lg font-medium text-sky-700">{platform}</h2>
-						<p class="text-sm text-slate-600">
+						<div class="inline-flex items-center gap-2 text-sm text-slate-600">
 							{#if connections[platform].steps.length > 0}
 								<a
 									target="_blank"
@@ -207,7 +207,7 @@
 							{:else}
 								No steps yet.
 							{/if}
-						</p>
+						</div>
 					</div>
 
 					<!-- Status Tag -->
@@ -274,10 +274,8 @@
 										<p class="text-4xl text-slate-600 opacity-30">?</p>
 									{/if}
 								</div>
-								<div class="flex-1 text-sm">
-									<a
-										target="_blank"
-										href={connections[platform].steps[connections[platform].steps.length - 1].url}
+								<div class="inline-flex flex-1 items-center gap-1.5 text-sm">
+									<a target="_blank" href={step.url}
 										><svg
 											class="h-3 w-3"
 											xmlns="http://www.w3.org/2000/svg"
