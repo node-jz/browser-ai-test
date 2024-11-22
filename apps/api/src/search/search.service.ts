@@ -3,8 +3,20 @@ https://docs.nestjs.com/providers#services
 */
 
 import { Injectable } from "@nestjs/common";
+import { Page } from "playwright";
 import { OpenAiService } from "src/llm/openai.service";
+
 import { SearchResult } from "./platforms/types";
+
+export class BrowserError extends Error {
+  constructor(
+    public message: string,
+    public page: Page,
+  ) {
+    super(message);
+    this.name = "BrowserError";
+  }
+}
 
 @Injectable()
 export class SearchService {
@@ -35,5 +47,21 @@ export class SearchService {
       match = choice.id !== null ? results[choice.id] : null;
     }
     return match;
+  }
+
+  async safeNavigation(
+    page: Page,
+    navigateCallback: () => Promise<void>,
+    timeout: number = 30000,
+  ): Promise<boolean> {
+    try {
+      await Promise.all([
+        page.waitForNavigation({ timeout }),
+        navigateCallback(),
+      ]);
+      return true;
+    } catch (e) {
+      throw new BrowserError(`Navigation failed: ${e.message}`, page);
+    }
   }
 }

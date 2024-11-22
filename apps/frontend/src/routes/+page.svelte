@@ -78,7 +78,7 @@
 				const { platform, match, image, url } = data;
 
 				let progress: { step: string; screenshot?: string; url: string } = {
-					step: `<a class="text-sky-700 font-semibold" href=${match.link} target="_blank">${match.name}</a>`,
+					step: `<a class="font-semibold text-sky-700" href=${match.link} target="_blank">${match.name}</a>`,
 					url
 				};
 				if (image) {
@@ -94,10 +94,28 @@
 			}
 		);
 		// Handle results
-		socket.on('no-results', (data: { platform: string; image?: Buffer }) => {
-			const { platform, image } = data;
+		socket.on('no-results', (data: { platform: string; url: string; image?: Buffer }) => {
+			const { platform, url, image } = data;
 
-			let progress: { step: string; screenshot?: string } = { step: `No matches found.` };
+			let progress: { step: string; url: string; screenshot?: string } = {
+				step: `No matches found.`,
+				url
+			};
+			if (image) {
+				const blob = new Blob([new Uint8Array(image)], { type: 'image/png' });
+				progress.screenshot = URL.createObjectURL(blob);
+			}
+			if (connections[platform]) {
+				connections[platform].steps.push(progress);
+				connections[platform].loading = false;
+				connections[platform].failed = false;
+				connections[platform].endTime = new Date();
+			}
+		});
+		socket.on('error', (data: { platform: string; message: string; image?: Buffer }) => {
+			const { platform, message, image } = data;
+
+			let progress: { step: string; screenshot?: string } = { step: message };
 			if (image) {
 				const blob = new Blob([new Uint8Array(image)], { type: 'image/png' });
 				progress.screenshot = URL.createObjectURL(blob);

@@ -3,16 +3,17 @@ https://docs.nestjs.com/providers#services
 */
 
 import { Injectable } from "@nestjs/common";
-import { chromium, Page } from "playwright";
-import { EventsGateway } from "src/events/events.gateway";
-import { DateRange, HotelDetails, SearchProps, SearchResult } from "./types";
-import { PlatformServiceInterface } from "./platform.interface";
 import { ConfigService } from "@nestjs/config";
+import { DateTime } from "luxon";
+import { chromium, Page } from "playwright";
+import { BrowserService } from "src/browser/browser/browser.service";
+import { EventsGateway } from "src/events/events.gateway";
 import { OpenAiService } from "src/llm/openai.service";
 import { SessionsService } from "src/sessions/sessions/sessions.service";
-import { BrowserService } from "src/browser/browser/browser.service";
-import { DateTime } from "luxon";
+
 import { SearchService } from "../search.service";
+import { PlatformServiceInterface } from "./platform.interface";
+import { DateRange, HotelDetails, SearchProps, SearchResult } from "./types";
 
 @Injectable()
 export class BedsOnlineService implements PlatformServiceInterface {
@@ -110,10 +111,7 @@ export class BedsOnlineService implements PlatformServiceInterface {
         url: page.url(),
       });
 
-      const hotelFoundAndSelected = await this.selectHotelFromList(
-        page,
-        hotel.displayName,
-      );
+      const hotelFoundAndSelected = await this.selectHotelFromList(page, hotel);
       if (!hotelFoundAndSelected) {
         buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
         await this.eventsGateway.notifyEvent("no-results", sessionId, {
@@ -190,7 +188,7 @@ export class BedsOnlineService implements PlatformServiceInterface {
     }
   }
 
-  async selectHotelFromList(page: Page, hotelName: string): Promise<boolean> {
+  async selectHotelFromList(page: Page, hotel: HotelDetails): Promise<boolean> {
     await page.waitForSelector(".fts-dropdown__fts__description__title");
     const hotelChoices = await page.$$eval(
       ".fts-dropdown__fts__description__title",
@@ -201,32 +199,32 @@ export class BedsOnlineService implements PlatformServiceInterface {
     );
     let selectedHotelName = null;
     for (const choice of hotelChoices) {
-      if (choice == hotelName) {
+      if (choice == hotel.displayName) {
         selectedHotelName = choice;
       }
     }
     if (!selectedHotelName) {
       // LLM choice
-      const result = await this.useLLMToFindHotel(hotelChoices, hotelName);
+      const result = await this.useLLMToFindHotel(hotelChoices, hotel);
       if (!result) {
         return false;
       }
       selectedHotelName = result;
     }
 
-    await page.getByText(selectedHotelName).click();
+    await page.getByText(selectedHotelName).first().click();
     return true;
   }
 
   async useLLMToFindHotel(
     hotelChoices: string[],
-    hotelToFind: string,
+    hotel: HotelDetails,
   ): Promise<string | null> {
     const systemPrompt = `I need you to search a list of hotels, and return the listed name that matches exactly or most closely to a hotel I am looking for [QUERY]. 
       [LIST]
       ${hotelChoices.join("\n")}
       [OUTPUT] return the best option or NULL if you dont believe the hotel is in the list, using JSON that matches the type {name: string | null} where null would be if no close match exists.`;
-    const userPrompt = `[QUERY] ${hotelToFind}`;
+    const userPrompt = `[QUERY] name: ${hotel.displayName} location: ${hotel.formattedAddress}`;
 
     const llmResult = await this.openaiService.completion({
       systemPrompt,
@@ -330,7 +328,6 @@ export class BedsOnlineService implements PlatformServiceInterface {
       return;
     }
 
-    await Promise.all([page.waitForNavigation(), page.goto(match.link)]);
     buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
     await this.eventsGateway.notifyEvent("results", sessionId, {
       platform: this.platform,

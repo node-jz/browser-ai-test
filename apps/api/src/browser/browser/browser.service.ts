@@ -22,7 +22,17 @@ export class BrowserService implements OnModuleInit, OnModuleDestroy {
   }
 
   async createContext(sessionId: string): Promise<BrowserContext> {
-    const context = await this.browser.newContext();
+    if (!this.browser.isConnected()) {
+      await this.onModuleInit();
+    }
+    let context: BrowserContext;
+    try {
+      context = await this.browser.newContext();
+    } catch (e) {
+      await this.onModuleInit();
+      context = await this.browser.newContext();
+      console.error(e);
+    }
     this.contexts.set(sessionId, context);
     this.logger.log(`New Context Created - ${sessionId}`);
     this.logger.debug(this.contexts.keys.length + " Contexts Open");
