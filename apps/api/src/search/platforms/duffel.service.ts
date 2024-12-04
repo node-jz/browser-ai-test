@@ -20,7 +20,7 @@ export class DuffelService implements PlatformServiceInterface {
     private configService: ConfigService,
     private readonly openaiService: OpenAiService,
     private readonly searchService: SearchService,
-    private readonly sessionsService: SessionsService
+    private readonly sessionsService: SessionsService,
   ) {}
 
   private readonly platform: string = "duffel";
@@ -136,16 +136,16 @@ export class DuffelService implements PlatformServiceInterface {
             address:
               (
                 link.querySelector(
-                  "p.Text_text--grey-600__0O8J3"
+                  "p.Text_text--grey-600__0O8J3",
                 ) as HTMLParagraphElement
               )?.innerText || "",
-          }))
+          })),
       );
 
       const match = await this.searchService.findMatchWithLLM(
         results,
         hotel.displayName,
-        hotel.formattedAddress
+        hotel.formattedAddress,
       );
       if (!match) {
         buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
