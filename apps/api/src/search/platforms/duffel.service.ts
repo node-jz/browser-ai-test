@@ -4,7 +4,6 @@ https://docs.nestjs.com/providers#services
 
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { chromium } from "playwright";
 import { EventsGateway } from "src/events/events.gateway";
 import { OpenAiService } from "src/llm/openai.service";
 import { SessionsService } from "src/sessions/sessions/sessions.service";
@@ -12,6 +11,7 @@ import { SessionsService } from "src/sessions/sessions/sessions.service";
 import { SearchService } from "../search.service";
 import { PlatformServiceInterface } from "./platform.interface";
 import { SearchProps, SearchResult } from "./types";
+import { BrowserService } from "src/browser/browser/browser.service";
 
 @Injectable()
 export class DuffelService implements PlatformServiceInterface {
@@ -21,6 +21,7 @@ export class DuffelService implements PlatformServiceInterface {
     private readonly openaiService: OpenAiService,
     private readonly searchService: SearchService,
     private readonly sessionsService: SessionsService,
+    private readonly browserService: BrowserService
   ) {}
 
   private readonly platform: string = "duffel";
@@ -32,8 +33,7 @@ export class DuffelService implements PlatformServiceInterface {
 
     const searchUrl = `https://app.duffel.com/997a4f4c1d8725505ef8bf3/test/stays/results?checkInDate=${dateRange.from}&checkOutDate=${dateRange.to}&rooms=1&lat=${hotel.location.latitude}&long=${hotel.location.longitude}&loc=${encodeURIComponent(hotel.displayName)}&adults=${adults}&children=${children.length}&timestamp=${Date.now()}`;
 
-    const browser = await chromium.launch({ headless: true });
-    const context = await browser.newContext();
+    const context = this.browserService.getContext(sessionId);
     const page = await context.newPage();
     try {
       await page.goto(searchUrl);
@@ -54,42 +54,46 @@ export class DuffelService implements PlatformServiceInterface {
         image: buffer,
         url: page.url(),
       });
-      if (await page.waitForSelector('form[method="post"]')) {
-        buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-        await this.eventsGateway.notifyEvent("progress", sessionId, {
-          platform: this.platform,
-          image: buffer,
-          step: "Filling out login form.",
-          url: page.url(),
-        });
 
-        await page.getByPlaceholder("Enter your email address…").click();
-        await page
-          .getByPlaceholder("Enter your email address…")
-          .fill(this.configService.get<string>("DUFFEL_USERNAME"));
-        await page.getByPlaceholder("Enter your password…").click();
-        await page
-          .getByPlaceholder("Enter your password…")
-          .fill(this.configService.get<string>("DUFFEL_PASSWORD"));
-        await page.getByTestId("submit").click();
+      if (await page.locator('[data-qa="username"]').isVisible()) {
+        if (await page.waitForSelector('form[method="post"]')) {
+          buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
+          await this.eventsGateway.notifyEvent("progress", sessionId, {
+            platform: this.platform,
+            image: buffer,
+            step: "Filling out login form.",
+            url: page.url(),
+          });
 
-        buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-        await this.eventsGateway.notifyEvent("progress", sessionId, {
-          platform: this.platform,
-          step: "Login form submitted.",
-          image: buffer,
-          url: page.url(),
-        });
+          await page.getByPlaceholder("Enter your email address…").click();
+          await page
+            .getByPlaceholder("Enter your email address…")
+            .fill(this.configService.get<string>("DUFFEL_USERNAME"));
+          await page.getByPlaceholder("Enter your password…").click();
+          await page
+            .getByPlaceholder("Enter your password…")
+            .fill(this.configService.get<string>("DUFFEL_PASSWORD"));
+          await page.getByTestId("submit").click();
 
-        await Promise.all([
-          page.waitForNavigation(),
-          page.click('button[type="submit"]'),
-        ]);
+          buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
+          await this.eventsGateway.notifyEvent("progress", sessionId, {
+            platform: this.platform,
+            step: "Login form submitted.",
+            image: buffer,
+            url: page.url(),
+          });
 
-        await this.searchService.safeNavigation(page, async () => {
-          await page.goto(searchUrl);
-          return;
-        });
+          await Promise.all([
+            page.waitForNavigation(),
+            page.click('button[type="submit"]'),
+          ]);
+
+          await this.searchService.safeNavigation(page, async () => {
+            await page.goto(searchUrl);
+            return;
+          });
+        }
+        await this.sessionsService.saveCookies(this.platform, context);
       }
 
       buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
@@ -112,7 +116,7 @@ export class DuffelService implements PlatformServiceInterface {
           image: buffer,
           url: page.url(),
         });
-        await this.sessionsService.deleteSession(sessionId);
+        await this.browserService.closePageInContext(sessionId, page);
         return;
       }
 
@@ -123,6 +127,10 @@ export class DuffelService implements PlatformServiceInterface {
         image: buffer,
         url: page.url(),
       });
+
+      await page
+        .locator(".LoadingBar_bar__XtMeA")
+        .waitFor({ state: "detached" });
       // Extract results
       const results: SearchResult[] = await page.$$eval(
         "#results a.StaysResultCard_container__QEx7E",
@@ -136,16 +144,16 @@ export class DuffelService implements PlatformServiceInterface {
             address:
               (
                 link.querySelector(
-                  "p.Text_text--grey-600__0O8J3",
+                  "p.Text_text--grey-600__0O8J3"
                 ) as HTMLParagraphElement
               )?.innerText || "",
-          })),
+          }))
       );
 
       const match = await this.searchService.findMatchWithLLM(
         results,
         hotel.displayName,
-        hotel.formattedAddress,
+        hotel.formattedAddress
       );
       if (!match) {
         buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
@@ -154,7 +162,7 @@ export class DuffelService implements PlatformServiceInterface {
           image: buffer,
           url: page.url(),
         });
-        await this.sessionsService.deleteSession(sessionId);
+        await this.browserService.closePageInContext(sessionId, page);
         return;
       }
 
@@ -167,7 +175,7 @@ export class DuffelService implements PlatformServiceInterface {
         url: page.url(),
       });
 
-      await this.sessionsService.deleteSession(sessionId);
+      await this.browserService.closePageInContext(sessionId, page);
     } catch (error) {
       const buffer = await page.screenshot({
         fullPage: true,
@@ -180,7 +188,7 @@ export class DuffelService implements PlatformServiceInterface {
         message: error.message ?? "Error while searching",
       });
       console.error("Error during browser operation:", error.message);
-      this.sessionsService.deleteSession(sessionId);
+      this.browserService.closePageInContext(sessionId, page);
       console.error(error);
     }
   }

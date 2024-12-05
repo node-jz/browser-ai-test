@@ -18,6 +18,7 @@ import { EventEmitterModule } from "@nestjs/event-emitter";
 import { ConfigModule } from "@nestjs/config";
 import { OpenAiService } from "./llm/openai.service";
 import { BedsOnlineService } from "./search/platforms/bedsonline.service";
+import { WebBedsService } from "./search/platforms/webbeds.service";
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { BedsOnlineService } from "./search/platforms/bedsonline.service";
     EventsGateway,
     OpenAiService,
     BedsOnlineService,
+    WebBedsService,
   ],
 })
 export class AppModule {}

@@ -16,80 +16,65 @@ import { PlatformServiceInterface } from "./platform.interface";
 import { DateRange, HotelDetails, SearchProps, SearchResult } from "./types";
 
 @Injectable()
-export class BedsOnlineService implements PlatformServiceInterface {
+export class WebBedsService implements PlatformServiceInterface {
   constructor(
-    private eventsGateway: EventsGateway,
-    private configService: ConfigService,
-    private sessionsService: SessionsService,
-    private browserService: BrowserService,
+    private readonly eventsGateway: EventsGateway,
+    private readonly configService: ConfigService,
+    private readonly sessionsService: SessionsService,
+    private readonly browserService: BrowserService,
     private readonly openaiService: OpenAiService,
-    private readonly searchService: SearchService
+    private readonly searchService: SearchService,
   ) {}
 
-  private readonly platform: string = "bedsonline";
+  private readonly platform: string = "webbeds";
   async search(sessionId: string, data: SearchProps): Promise<void> {
     const { adults, children, hotel, dateRanges } = data;
     const dateRange = dateRanges[0];
-    // todo make use of multiple date ranges
 
     const context = this.browserService.getContext(sessionId);
     const page = await context.newPage();
+    let buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
+    await this.eventsGateway.notifyEvent("progress", sessionId, {
+      platform: this.platform,
+      step: "starting...",
+      image: buffer,
+      url: page.url(),
+    });
+
     try {
-      await page.goto("https://app.bedsonline.com/main");
-
-      await page.waitForTimeout(2000);
-      let buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-      await this.eventsGateway.notifyEvent("progress", sessionId, {
-        platform: this.platform,
-        step: "login page loaded.",
-        image: buffer,
-        url: page.url(),
-      });
-      if (await page.locator('[data-qa="username"]').isVisible()) {
-        if (await page.getByRole("link", { name: "Allow all" }).isVisible()) {
-          await page.getByRole("link", { name: "Allow all" }).click();
-        }
-        await page.waitForTimeout(2000);
-        // Fill the Username field
+      await Promise.all([
+        page.waitForNavigation(),
+        page.goto("https://book.webbeds.com/accommodations"),
+      ]);
+      if (await page.getByLabel("Login ID").isVisible()) {
+        await page.getByLabel("Login ID").click();
+        await page.getByLabel("Login ID").fill(process.env.WEBBEDS_USERNAME);
+        await page.getByLabel("Password").click();
+        await page.getByLabel("Password").fill(process.env.WEBBEDS_PASSWORD);
+        await page.getByLabel("Company Code").click();
         await page
-          .locator('[data-qa="username"]')
-          .pressSequentially(
-            this.configService.get<string>("BEDSONLINE_USERNAME"),
-            { delay: 100 }
-          );
+          .getByLabel("Company Code")
+          .fill(process.env.WEBBEDS_COMPANY_CODE);
+        await page.getByRole("checkbox", { name: "remember" }).check();
+        await Promise.all([
+          page.waitForNavigation(),
+          page.getByRole("button", { name: "Login" }).click(),
+        ]);
 
-        await page.waitForTimeout(2000);
-        // Fill the Password field
-        await page
-          .locator('[data-qa="password"]')
-          .pressSequentially(
-            this.configService.get<string>("BEDSONLINE_PASSWORD"),
-            { delay: 100 }
-          );
-
-        await page.waitForTimeout(2000);
-        buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-        await this.eventsGateway.notifyEvent("progress", sessionId, {
-          platform: this.platform,
-          step: "login form filled out.",
-          image: buffer,
-          url: page.url(),
-        });
-
-        await Promise.all([page.click('[data-qa="login-button"]')]);
-        await this.sessionsService.saveCookies(this.platform, context);
+        await this.handleMfa(page, sessionId);
       }
-
       await page.waitForTimeout(2000);
+      await this.sessionsService.saveCookies(this.platform, context);
       buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
       await this.eventsGateway.notifyEvent("progress", sessionId, {
         platform: this.platform,
-        step: "Search form loaded.",
+        step: "login page finished.",
         image: buffer,
         url: page.url(),
       });
 
-      await page.locator("#HOTEL_selector").click();
+      await page.waitForTimeout(2000);
+
       const resultsFound = await this.searchForHotel(page, hotel, sessionId);
       await page.waitForTimeout(2000);
       if (!resultsFound) {
@@ -115,6 +100,7 @@ export class BedsOnlineService implements PlatformServiceInterface {
           platform: this.platform,
           url: page.url(),
         });
+        return;
       }
 
       buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
@@ -126,14 +112,14 @@ export class BedsOnlineService implements PlatformServiceInterface {
       });
 
       await Promise.all([
-        page.waitForNavigation(),
-        page.locator('button[data-qa="btn_search_stay_themepark"]').click(),
+        page.waitForLoadState("networkidle"),
+        page.locator('button[type="submit"]').click(),
       ]);
 
       buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
       await this.eventsGateway.notifyEvent("progress", sessionId, {
         platform: this.platform,
-        step: "Results loaded.",
+        step: "Initial page loaded without date and occupancy set.",
         image: buffer,
         url: page.url(),
       });
@@ -143,7 +129,7 @@ export class BedsOnlineService implements PlatformServiceInterface {
         hotel,
         { adults: adults, children: children },
         dateRange,
-        sessionId
+        sessionId,
       );
     } catch (e) {
       console.error(e);
@@ -162,10 +148,35 @@ export class BedsOnlineService implements PlatformServiceInterface {
     await this.browserService.closePageInContext(sessionId, page);
   }
 
+  async handleMfa(page: Page, sessionId: string) {
+    try {
+      const mfaFormField = await page.locator("#mfacode");
+      if ((await mfaFormField.isVisible()) === false) {
+        return;
+      }
+      const buffer = await page.screenshot({
+        fullPage: true,
+        type: "jpeg",
+      });
+      await this.eventsGateway.notifyEvent("requestMfaCode", sessionId, {
+        platform: this.platform,
+        step: "MFA code required.",
+        image: buffer,
+        url: page.url(),
+      });
+      const mfaCode = await this.eventsGateway.waitForMfaCode(sessionId);
+      console.log(mfaCode);
+      await page.locator("#mfacode").fill(mfaCode);
+      await page.getByRole("button", { name: "Verify code" }).click();
+      await page.waitForTimeout(2000);
+    } catch (e) {
+      console.error(e);
+    }
+  }
   async searchForHotel(
     page: Page,
     hotel: HotelDetails,
-    sessionId: string
+    sessionId: string,
   ): Promise<boolean> {
     let searchText = hotel.displayName;
     while (true) {
@@ -178,7 +189,7 @@ export class BedsOnlineService implements PlatformServiceInterface {
       searchText = words.slice(0, -1).join(" ");
 
       // Retry search with the reduced term
-      await this.performHotelNameSearch(page, searchText);
+      await this.inputHotelNameInSearchField(page, searchText);
       const buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
       await this.eventsGateway.notifyEvent("progress", sessionId, {
         platform: this.platform,
@@ -196,41 +207,59 @@ export class BedsOnlineService implements PlatformServiceInterface {
   }
 
   async selectHotelFromList(page: Page, hotel: HotelDetails): Promise<boolean> {
-    await page.waitForSelector(".fts-dropdown__fts__description__title");
+    // Wait for the hotel list to be loaded
+    await page.waitForSelector(`ul#\\:r0\\:-listbox`);
+
+    // Extract hotel choices from the updated structure
     const hotelChoices = await page.$$eval(
-      ".fts-dropdown__fts__description__title",
-      (links) =>
-        Array.from(links).map((element) =>
-          element.textContent.trim().slice(0, -1)
-        )
+      `ul#\\:r0\\:-listbox li`,
+      (options) =>
+        Array.from(options)
+          .map((option) => ({
+            name: option.querySelector("p")?.textContent.trim(),
+            id: option.getAttribute("id"),
+            inner: option.innerHTML,
+            all: option,
+          }))
+          .filter((choice) => choice.id !== null),
     );
-    let selectedHotelName = null;
+
+    // Find the matching hotel name
+    let selectedHotel: { name: string; id: string } | null = null;
     for (const choice of hotelChoices) {
-      if (choice == hotel.displayName) {
-        selectedHotelName = choice;
+      if (choice.name === hotel.displayName) {
+        selectedHotel = choice;
+        break;
       }
     }
-    if (!selectedHotelName) {
-      // LLM choice
+
+    if (!selectedHotel) {
+      // Use LLM or fallback logic to find the closest match
       const result = await this.useLLMToFindHotel(hotelChoices, hotel);
       if (!result) {
         return false;
       }
-      selectedHotelName = result;
+      selectedHotel = result;
     }
 
-    await page.getByText(selectedHotelName).first().click();
+    // Click on the matching hotel name
+    await page
+      .locator(`ul#\\:r0\\:-listbox li[id="${selectedHotel.id}"]`)
+      .click();
+
     return true;
   }
 
   async useLLMToFindHotel(
-    hotelChoices: string[],
-    hotel: HotelDetails
-  ): Promise<string | null> {
+    hotelChoices: { name: string; id: string }[],
+    hotel: HotelDetails,
+  ): Promise<{ name: string; id: string } | null> {
     const systemPrompt = `I need you to search a list of hotels, and return the listed name that matches exactly or most closely to a hotel I am looking for [QUERY]. 
       [LIST]
-      ${hotelChoices.join("\n")}
-      [OUTPUT] return the best option or NULL if you dont believe the hotel is in the list, using JSON that matches the type {name: string | null} where null would be if no close match exists.`;
+      ${hotelChoices
+        .map((choice) => `NAME: ${choice.name} (ID: ${choice.id})`)
+        .join("\n")}
+      [OUTPUT] return the best option or NULL if you dont believe the hotel is in the list, using JSON that matches the type { id: string | null, name: string | null} where null would be if no close match exists.`;
     const userPrompt = `[QUERY] name: ${hotel.displayName} location: ${hotel.formattedAddress}`;
 
     const llmResult = await this.openaiService.completion({
@@ -239,20 +268,20 @@ export class BedsOnlineService implements PlatformServiceInterface {
       model: "gpt-4o-2024-08-06",
       json: true,
     });
-    return JSON.parse(llmResult.content).name;
+    return JSON.parse(llmResult.content);
   }
 
-  async performHotelNameSearch(page: Page, text: string) {
-    await page.locator("[data-qa=destinationsControl]").fill("");
-    await page
-      .locator("[data-qa=destinationsControl]")
-      .pressSequentially(text, { delay: 100 });
+  async inputHotelNameInSearchField(page: Page, text: string) {
+    await page.locator(`#\\:r0\\:`).fill("");
+    await page.locator(`#\\:r0\\:`).pressSequentially(text, {
+      delay: 100,
+    });
     await page.waitForTimeout(1000);
   }
 
   async checkForNoResultsMessage(page: Page) {
     const noResultsMessage = await page
-      .locator("text=Your search did not return any results")
+      .locator("text=No matches found. Please refine your search.")
       .isVisible();
     return noResultsMessage;
   }
@@ -263,27 +292,26 @@ export class BedsOnlineService implements PlatformServiceInterface {
     hotel: HotelDetails,
     occupancy: { adults: number; children: number[] },
     dateRange: DateRange,
-    sessionId: string
+    sessionId: string,
   ) {
     let buffer: Buffer;
-    buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-    await this.eventsGateway.notifyEvent("progress", sessionId, {
-      platform: this.platform,
-      step: "Results loaded.",
-      image: buffer,
-      url: page.url(),
-    });
-    await page.goto(this.updateUrl(page.url(), dateRange, occupancy));
-    buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-    await this.eventsGateway.notifyEvent("progress", sessionId, {
-      platform: this.platform,
-      step: "Changing URL.",
-      image: buffer,
-      url: page.url(),
-    });
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(4000);
+    await Promise.all([
+      page.waitForNavigation(),
+      page.goto(this.updateUrl(page.url(), dateRange, occupancy)),
+    ]);
 
-    await page.waitForSelector("clientb2b-front-feature-results-list");
+    buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
+    await this.eventsGateway.notifyEvent("progress", sessionId, {
+      platform: this.platform,
+      step: "Changed URL.",
+      image: buffer,
+      url: page.url(),
+    });
+
+    await page.waitForSelector("div[data-testid='search-results-section']");
+    await page.waitForSelector("span[role='progressbar']");
+    await page.getByRole("progressbar").waitFor({ state: "detached" });
     buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
     await this.eventsGateway.notifyEvent("progress", sessionId, {
       platform: this.platform,
@@ -291,44 +319,29 @@ export class BedsOnlineService implements PlatformServiceInterface {
       image: buffer,
       url: page.url(),
     });
-    (
-      await page.waitForSelector(".feature-card-layout__card__body")
-    ).isVisible();
-
     const results: SearchResult[] = await page.$$eval(
-      ".feature-card-layout__card__body", // Select the main container for each hotel card
+      "div[data-testid='search-results-section'] li", // Select the main container for each hotel card
       (cards) =>
-        (cards as HTMLElement[]).map((card) => ({
-          link:
-            (
-              card.querySelector(
-                "a.card-content-header__name__link"
-              ) as HTMLAnchorElement
-            )?.href || "",
-          name:
-            (
-              card.querySelector(
-                ".card-content-header__name__title"
-              ) as HTMLSpanElement
-            )?.innerText.trim() || "",
-          price:
-            (
-              card.querySelector(
-                ".tooltip-markup-commission__price__container__integer"
-              ) as HTMLElement
-            )?.innerText || "00.00",
-          address:
-            (
-              card.querySelector(
-                ".card-content-header__location__address__title"
-              ) as HTMLElement
-            )?.innerText.trim() || "",
-        }))
+        (cards as HTMLElement[]).map((card) => {
+          const spans = card.querySelectorAll("span");
+          const price =
+            spans.length >= 2 && spans[0].textContent.trim() === "From"
+              ? spans[1].textContent.trim()
+              : "00.00";
+          return {
+            link: (card.querySelector("a") as HTMLAnchorElement)?.href || "",
+            name:
+              (card.querySelector("h6") as HTMLSpanElement)?.innerText.trim() ||
+              "",
+            price: price,
+            address: "(address not listed)",
+          };
+        }),
     );
     const match = await this.searchService.findMatchWithLLM(
       results,
       hotel.displayName,
-      hotel.formattedAddress
+      hotel.formattedAddress,
     );
     if (!match) {
       buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
@@ -352,20 +365,29 @@ export class BedsOnlineService implements PlatformServiceInterface {
   updateUrl(
     url: string,
     { from, to }: DateRange,
-    { adults, children }: { adults: number; children: number[] }
+    { adults, children }: { adults: number; children: number[] },
   ): string {
-    const newCheckIn = DateTime.fromFormat(from, "yyyy-MM-dd").toFormat(
-      "dd-MM-yyyy"
-    );
-    const newCheckOut = DateTime.fromFormat(to, "yyyy-MM-dd").toFormat(
-      "dd-MM-yyyy"
-    );
-    const newOccupancy = [adults, children.length, ...children].join("~");
+    // Convert string dates to ISO format (yyyy-MM-dd)
+    const formattedStartDate = DateTime.fromISO(from).toFormat("yyyy-MM-dd");
+    const formattedEndDate = DateTime.fromISO(to).toFormat("yyyy-MM-dd");
 
+    // Create the updated occupancy parameter as a JSON string
+    const guestParam = JSON.stringify([
+      {
+        adults: adults,
+        children: children.length,
+        ages: children.map((age) => ({ age })),
+      },
+    ]);
+
+    // Parse the URL and update query parameters
     const urlObj = new URL(url);
-    urlObj.searchParams.set("check_in", newCheckIn);
-    urlObj.searchParams.set("check_out", newCheckOut);
-    urlObj.searchParams.set("occupancy", newOccupancy);
+
+    // Update query parameters for check-in, check-out, and occupancy
+    urlObj.searchParams.set("in", formattedStartDate);
+    urlObj.searchParams.set("out", formattedEndDate);
+    urlObj.searchParams.set("r", guestParam);
+    urlObj.searchParams.set("SORT_BY", "distance@asc");
 
     return urlObj.toString();
   }

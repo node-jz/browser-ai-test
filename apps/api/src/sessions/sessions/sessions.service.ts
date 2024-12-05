@@ -1,11 +1,14 @@
-import { Injectable } from "@nestjs/common";
+import { forwardRef, Inject, Injectable } from "@nestjs/common";
 import { BrowserContext } from "playwright";
-import { BrowserService } from "src/browser/browser/browser.service";
 import { v4 as uuidv4 } from "uuid";
-
+import * as fs from "fs";
+import { BrowserService } from "../../browser/browser/browser.service";
 @Injectable()
 export class SessionsService {
-  constructor(private readonly browserService: BrowserService) {}
+  constructor(
+    @Inject(forwardRef(() => BrowserService))
+    private readonly browserService: BrowserService,
+  ) {}
 
   async createSession(): Promise<string> {
     const sessionId = uuidv4();
@@ -37,5 +40,36 @@ export class SessionsService {
     contexts.forEach((context, key) => {
       this.deleteSession(key);
     });
+  }
+
+  async saveCookies(platform: string, context: BrowserContext) {
+    const cookies = await context.cookies();
+    fs.writeFileSync(`./cookies/${platform}.json`, JSON.stringify(cookies));
+    return cookies;
+  }
+
+  async loadCookies(context: BrowserContext) {
+    if (!fs.existsSync("./cookies")) {
+      fs.mkdirSync("./cookies");
+    }
+    try {
+      const cookieFiles = fs
+        .readdirSync("./cookies")
+        .filter((file) => file.endsWith(".json"));
+      const allCookies = [];
+
+      for (const file of cookieFiles) {
+        const cookies = JSON.parse(
+          fs.readFileSync(`./cookies/${file}`, "utf8"),
+        );
+        allCookies.push(...cookies);
+      }
+      if (allCookies.length > 0) {
+        await context.addCookies(allCookies);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return context;
   }
 }

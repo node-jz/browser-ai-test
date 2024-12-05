@@ -6,6 +6,7 @@ import { SessionsService } from "src/sessions/sessions/sessions.service";
 import { BedsOnlineService } from "./platforms/bedsonline.service";
 import { PlatformServiceInterface } from "./platforms/platform.interface";
 import { SearchProps } from "./platforms/types";
+import { WebBedsService } from "./platforms/webbeds.service";
 
 @Controller("search")
 export class SearchController {
@@ -15,11 +16,13 @@ export class SearchController {
     private readonly duffelService: DuffelService,
     private readonly bedsOnlineService: BedsOnlineService,
     private readonly sessionsService: SessionsService,
+    private readonly webBedsService: WebBedsService,
     private readonly eventsGateway: EventsGateway,
   ) {
     this.serviceMap = {
       duffel: this.duffelService,
       bedsonline: this.bedsOnlineService,
+      webbeds: this.webBedsService,
     };
   }
 

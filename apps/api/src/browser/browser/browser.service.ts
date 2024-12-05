@@ -1,13 +1,21 @@
 import {
+  forwardRef,
+  Inject,
   Injectable,
   Logger,
   OnModuleDestroy,
   OnModuleInit,
 } from "@nestjs/common";
-import { Browser, BrowserContext, chromium } from "playwright";
+import { Browser, BrowserContext, chromium, Page } from "playwright";
+import { SessionsService } from "src/sessions/sessions/sessions.service";
 
 @Injectable()
 export class BrowserService implements OnModuleInit, OnModuleDestroy {
+  constructor(
+    @Inject(forwardRef(() => SessionsService))
+    private readonly sessionsService: SessionsService,
+  ) {}
+
   private readonly logger = new Logger(BrowserService.name);
 
   private browser: Browser;
@@ -27,12 +35,25 @@ export class BrowserService implements OnModuleInit, OnModuleDestroy {
     }
     let context: BrowserContext;
     try {
-      context = await this.browser.newContext();
+      context = await this.browser.newContext({
+        extraHTTPHeaders: {
+          "Accept-Language": "en-US", // Adding the required Accept-Language header
+        },
+        userAgent:
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
+      });
     } catch (e) {
       await this.onModuleInit();
-      context = await this.browser.newContext();
+      context = await this.browser.newContext({
+        extraHTTPHeaders: {
+          "Accept-Language": "en-US", // Adding the required Accept-Language header
+        },
+        userAgent:
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
+      });
       console.error(e);
     }
+    context = await this.sessionsService.loadCookies(context);
     this.contexts.set(sessionId, context);
     this.logger.log(`New Context Created - ${sessionId}`);
     this.logger.debug(this.contexts.keys.length + " Contexts Open");
@@ -55,6 +76,18 @@ export class BrowserService implements OnModuleInit, OnModuleDestroy {
 
       this.logger.log(`Context Deleted - ${sessionId}`);
       this.logger.debug(this.contexts.keys.length + " Contexts Open");
+    }
+  }
+
+  async closePageInContext(sessionId: string, page: Page) {
+    const context = this.contexts.get(sessionId);
+    if (context) {
+      await page.close();
+      const pages = context.pages();
+      if (pages.length === 0) {
+        await context.close();
+        this.contexts.delete(sessionId);
+      }
     }
   }
 }

@@ -5,7 +5,7 @@
 	import { fail } from '@sveltejs/kit';
 	import SearchForm from './search/SearchForm.svelte';
 	type Connection = {
-		steps: { step: string; screenshot?: string; url: string }[];
+		steps: { step: string; screenshot?: string; url: string; type?: string }[];
 		loading: boolean;
 		failed: boolean;
 		startTime: Date; // Track when the connection started
@@ -21,7 +21,8 @@
 	let occupants = $state(1);
 	let platforms = $state([
 		{ name: 'Duffel', value: 'duffel', checked: true },
-		{ name: 'Beds Online', value: 'bedsonline', checked: true }
+		{ name: 'Beds Online', value: 'bedsonline', checked: true },
+		{ name: 'Webbeds', value: 'webbeds', checked: true }
 		// Add more websites as needed
 	]);
 	let room: string | null = $state<string | null>(null);
@@ -57,7 +58,31 @@
 				if (!connections[platform]) {
 					initNewConnection(platform);
 				}
-				let progress: { step: string; screenshot?: string; url: string } = { step: step, url: url };
+				let progress: { step: string; screenshot?: string; url: string; type?: string } = {
+					step: step,
+					url: url,
+					type: 'progress'
+				};
+				if (image) {
+					const blob = new Blob([new Uint8Array(data.image)], { type: 'image/png' });
+					progress.screenshot = URL.createObjectURL(blob);
+				}
+				connections[platform].steps.push(progress);
+			}
+		);
+
+		socket.on(
+			'requestMfaCode',
+			(data: { platform: string; url: string; step: string; image: Buffer }) => {
+				const { platform, step, url, image } = data;
+				if (!connections[platform]) {
+					initNewConnection(platform);
+				}
+				let progress: { step: string; screenshot?: string; url: string; type?: string } = {
+					step: step,
+					url: url,
+					type: 'requestMfaCode'
+				};
 				if (image) {
 					const blob = new Blob([new Uint8Array(data.image)], { type: 'image/png' });
 					progress.screenshot = URL.createObjectURL(blob);
@@ -77,9 +102,10 @@
 			}) => {
 				const { platform, match, image, url } = data;
 
-				let progress: { step: string; screenshot?: string; url: string } = {
+				let progress: { step: string; screenshot?: string; url: string; type?: string } = {
 					step: `<a class="font-semibold text-sky-700" href=${match.link} target="_blank">${match.name}</a>`,
-					url
+					url,
+					type: 'results'
 				};
 				if (image) {
 					const blob = new Blob([new Uint8Array(image)], { type: 'image/png' });
@@ -97,9 +123,10 @@
 		socket.on('no-results', (data: { platform: string; url: string; image?: Buffer }) => {
 			const { platform, url, image } = data;
 
-			let progress: { step: string; url: string; screenshot?: string } = {
+			let progress: { step: string; url: string; screenshot?: string; type?: string } = {
 				step: `No matches found.`,
-				url
+				url,
+				type: 'results'
 			};
 			if (image) {
 				const blob = new Blob([new Uint8Array(image)], { type: 'image/png' });
@@ -115,7 +142,10 @@
 		socket.on('error', (data: { platform: string; message: string; image?: Buffer }) => {
 			const { platform, message, image } = data;
 
-			let progress: { step: string; screenshot?: string } = { step: message };
+			let progress: { step: string; screenshot?: string; type?: string } = {
+				step: message,
+				type: 'error'
+			};
 			if (image) {
 				const blob = new Blob([new Uint8Array(image)], { type: 'image/png' });
 				progress.screenshot = URL.createObjectURL(blob);
@@ -140,8 +170,9 @@
 			},
 			body: JSON.stringify(formData)
 		});
-		const room = (await res.json()) as { sessionId: string };
-		socket.emit('subscribeToSession', { sessionId: room.sessionId });
+		const sessionResponse = (await res.json()) as { sessionId: string };
+		room = sessionResponse.sessionId;
+		socket.emit('subscribeToSession', { sessionId: room });
 	}
 
 	function toggleHistory(platform: string) {
@@ -153,6 +184,13 @@
 		const minutes = Math.floor((elapsedTime / (1000 * 60)) % 60);
 		return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 	}
+	const handleMfaCode = (e: SubmitEvent) => {
+		e.preventDefault();
+		console.log('mfa code submitted');
+		const code = (e.target as HTMLFormElement).mfaCode.value;
+		console.log(code);
+		socket.emit('mfaCode', { sessionId: room, mfaCode: code });
+	};
 
 	// Set up an interval to update the timers
 	const timerInterval = setInterval(() => {
@@ -186,11 +224,19 @@
 						class="flex h-16 w-24 items-center justify-center rounded-lg border border-slate-300 bg-slate-100"
 					>
 						{#if connections[platform].steps.length > 0 && connections[platform].steps[connections[platform].steps.length - 1].screenshot}
-							<img
-								class="h-full w-auto rounded-lg"
-								src={connections[platform].steps[connections[platform].steps.length - 1].screenshot}
-								alt="Screenshot"
-							/>
+							<a
+								class="h-16 w-24 overflow-clip"
+								href={connections[platform].steps[connections[platform].steps.length - 1]
+									.screenshot}
+								target="_blank"
+							>
+								<img
+									class="object-fit h-full w-auto rounded-lg object-top"
+									src={connections[platform].steps[connections[platform].steps.length - 1]
+										.screenshot}
+									alt="Screenshot"
+								/>
+							</a>
 						{:else}
 							<p class="text-4xl text-slate-600 opacity-30">?</p>
 						{/if}
@@ -222,6 +268,13 @@
 									></a
 								>
 								{@html connections[platform].steps[connections[platform].steps.length - 1].step}
+								{#if connections[platform].steps[connections[platform].steps.length - 1].type == 'requestMfaCode'}
+									<span class="text-red-500">MFA Code Required</span>
+									<form onsubmit={handleMfaCode}>
+										<input type="text" name="mfaCode" />
+										<button type="submit">Submit</button>
+									</form>
+								{/if}
 							{:else}
 								No steps yet.
 							{/if}
@@ -255,7 +308,7 @@
 
 					<!-- History Button -->
 					<button
-						on:click={() => toggleHistory(platform)}
+						onclick={() => toggleHistory(platform)}
 						class="flex items-center text-sm font-semibold text-sky-700 hover:underline"
 					>
 						<span>History</span>
@@ -287,7 +340,13 @@
 									class="flex aspect-video w-72 items-center justify-center rounded-lg border border-slate-300 bg-slate-100"
 								>
 									{#if step.screenshot}
-										<img class="h-auto w-full rounded-lg" src={step.screenshot} alt="Screenshot" />
+										<a href={step.screenshot} target="_blank">
+											<img
+												class="h-auto w-full rounded-lg"
+												src={step.screenshot}
+												alt="Screenshot"
+											/>
+										</a>
 									{:else}
 										<p class="text-4xl text-slate-600 opacity-30">?</p>
 									{/if}

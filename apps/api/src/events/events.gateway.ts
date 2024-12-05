@@ -1,11 +1,11 @@
 import {
-  WebSocketGateway,
+  ConnectedSocket,
+  MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
-  WebSocketServer,
   SubscribeMessage,
-  MessageBody,
-  ConnectedSocket,
+  WebSocketGateway,
+  WebSocketServer,
 } from "@nestjs/websockets";
 import { Server, Socket } from "socket.io";
 import { BrowserService } from "src/browser/browser/browser.service";
@@ -47,5 +47,41 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     data: Record<string, unknown>,
   ) {
     this.server.to(sessionId).emit(eventName, data);
+  }
+
+  // Store session-specific handlers
+  private sessionHandlers = new Map<string, (mfaCode: string) => void>();
+
+  @SubscribeMessage("mfaCode")
+  async handleMfaCode(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { mfaCode: string; sessionId: string },
+  ) {
+    const { mfaCode, sessionId } = data;
+
+    // Check if a handler exists for the session
+    const handler = this.sessionHandlers.get(sessionId);
+    if (handler) {
+      handler(mfaCode); // Call the handler and resolve the Promise
+      this.sessionHandlers.delete(sessionId); // Clean up after handling
+    }
+
+    // Broadcast to the room for additional listeners
+    this.server.to(sessionId).emit("mfaCodeSubmitted", { mfaCode, sessionId });
+  }
+
+  async waitForMfaCode(sessionId: string): Promise<string> {
+    // Emit the request to the specific room
+    this.server.to(sessionId).emit("requestMfaCode", { sessionId });
+
+    // Return a Promise that resolves when the code is received
+    return new Promise((resolve) => {
+      const handler = (mfaCode: string) => {
+        resolve(mfaCode);
+      };
+
+      // Store the handler for this session
+      this.sessionHandlers.set(sessionId, handler);
+    });
   }
 }
