@@ -17,7 +17,7 @@ export class DuffelService implements PlatformServiceInterface {
     private configService: ConfigService,
     private readonly searchService: SearchService,
     private readonly sessionsService: SessionsService,
-    private readonly browserService: BrowserService
+    private readonly browserService: BrowserService,
   ) {}
 
   private readonly platform: string = "duffel";
@@ -33,7 +33,7 @@ export class DuffelService implements PlatformServiceInterface {
       page,
       sessionId,
       "Navigating to duffel.",
-      this.platform
+      this.platform,
     );
 
     try {
@@ -46,7 +46,7 @@ export class DuffelService implements PlatformServiceInterface {
             page,
             sessionId,
             "Login required.",
-            this.platform
+            this.platform,
           );
 
           await page.locator("input#email").click();
@@ -75,7 +75,7 @@ export class DuffelService implements PlatformServiceInterface {
         page,
         sessionId,
         "Waiting for search results to load.",
-        this.platform
+        this.platform,
       );
 
       try {
@@ -85,7 +85,7 @@ export class DuffelService implements PlatformServiceInterface {
         await this.searchService.triggerNoResultsNotification(
           page,
           sessionId,
-          this.platform
+          this.platform,
         );
         await this.browserService.closePageInContext(sessionId, page);
         return;
@@ -99,7 +99,7 @@ export class DuffelService implements PlatformServiceInterface {
         page,
         sessionId,
         "Search results, selecting best match.",
-        this.platform
+        this.platform,
       );
       const results: SearchResult[] = await page.$$eval(
         "#results a.StaysResultCard_container__QEx7E",
@@ -113,22 +113,22 @@ export class DuffelService implements PlatformServiceInterface {
             address:
               (
                 link.querySelector(
-                  "p.Text_text--grey-600__0O8J3"
+                  "p.Text_text--grey-600__0O8J3",
                 ) as HTMLParagraphElement
               )?.innerText || "",
-          }))
+          })),
       );
 
       const match = await this.searchService.findMatchWithLLM(
         results,
         hotel.displayName,
-        hotel.formattedAddress
+        hotel.formattedAddress,
       );
       if (!match) {
         await this.searchService.triggerNoResultsNotification(
           page,
           sessionId,
-          this.platform
+          this.platform,
         );
         await this.browserService.closePageInContext(sessionId, page);
         return;
@@ -138,7 +138,7 @@ export class DuffelService implements PlatformServiceInterface {
         page,
         sessionId,
         "Match found. Opening booking page.",
-        this.platform
+        this.platform,
       );
       await Promise.all([page.waitForNavigation(), page.goto(match.link)]);
       await this.searchService.triggerNotification(page, sessionId, "results", {
@@ -154,7 +154,7 @@ export class DuffelService implements PlatformServiceInterface {
         page,
         sessionId,
         this.platform,
-        error.message ?? "Error while searching"
+        error.message ?? "Error while searching",
       );
       console.error("Error during browser operation:", error.message);
       this.browserService.closePageInContext(sessionId, page);

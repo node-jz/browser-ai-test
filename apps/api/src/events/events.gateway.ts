@@ -1,4 +1,12 @@
-import { ConnectedSocket, MessageBody, OnGatewayConnection, OnGatewayDisconnect, SubscribeMessage, WebSocketGateway, WebSocketServer } from "@nestjs/websockets";
+import {
+  ConnectedSocket,
+  MessageBody,
+  OnGatewayConnection,
+  OnGatewayDisconnect,
+  SubscribeMessage,
+  WebSocketGateway,
+  WebSocketServer,
+} from "@nestjs/websockets";
 import { Server, Socket } from "socket.io";
 import { BrowserService } from "src/browser/browser/browser.service";
 
@@ -63,7 +71,6 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   async waitForMfaCode(sessionId: string): Promise<string> {
-   
     // Return a Promise that resolves when the code is received
     return new Promise((resolve) => {
       const handler = (mfaCode: string) => {
