@@ -23,7 +23,7 @@ export class WebBedsService implements PlatformServiceInterface {
     private readonly sessionsService: SessionsService,
     private readonly browserService: BrowserService,
     private readonly openaiService: OpenAiService,
-    private readonly searchService: SearchService,
+    private readonly searchService: SearchService
   ) {}
 
   private readonly platform: string = "webbeds";
@@ -37,7 +37,7 @@ export class WebBedsService implements PlatformServiceInterface {
       page,
       sessionId,
       `Navigating to ${this.platform}.`,
-      this.platform,
+      this.platform
     );
 
     try {
@@ -51,7 +51,7 @@ export class WebBedsService implements PlatformServiceInterface {
           page,
           sessionId,
           "Login required.",
-          this.platform,
+          this.platform
         );
         await page.getByLabel("Login ID").click();
         await page.getByLabel("Login ID").fill(process.env.WEBBEDS_USERNAME);
@@ -72,7 +72,7 @@ export class WebBedsService implements PlatformServiceInterface {
           page,
           sessionId,
           "Saving cookies to skip login next time.",
-          this.platform,
+          this.platform
         );
         await page.waitForTimeout(2000);
         await this.sessionsService.saveCookies(this.platform, context);
@@ -81,7 +81,7 @@ export class WebBedsService implements PlatformServiceInterface {
         page,
         sessionId,
         `Beginning search for ${hotel.displayName}.`,
-        this.platform,
+        this.platform
       );
       await page.waitForTimeout(2000);
 
@@ -91,7 +91,7 @@ export class WebBedsService implements PlatformServiceInterface {
         await this.searchService.triggerNoResultsNotification(
           page,
           sessionId,
-          this.platform,
+          this.platform
         );
       }
 
@@ -99,7 +99,7 @@ export class WebBedsService implements PlatformServiceInterface {
         page,
         sessionId,
         "hotel name entered.",
-        this.platform,
+        this.platform
       );
 
       const hotelFoundAndSelected = await this.selectHotelFromList(page, hotel);
@@ -107,7 +107,7 @@ export class WebBedsService implements PlatformServiceInterface {
         await this.searchService.triggerNoResultsNotification(
           page,
           sessionId,
-          this.platform,
+          this.platform
         );
         return;
       }
@@ -116,7 +116,7 @@ export class WebBedsService implements PlatformServiceInterface {
         page,
         sessionId,
         "Selected hotel from list.",
-        this.platform,
+        this.platform
       );
 
       await Promise.all([
@@ -128,7 +128,7 @@ export class WebBedsService implements PlatformServiceInterface {
         page,
         sessionId,
         "Initial page loaded without date and occupancy set.",
-        this.platform,
+        this.platform
       );
 
       await this.handleResultsPage(
@@ -136,7 +136,7 @@ export class WebBedsService implements PlatformServiceInterface {
         hotel,
         { adults: adults, children: children },
         dateRange,
-        sessionId,
+        sessionId
       );
     } catch (e) {
       console.error(e);
@@ -144,7 +144,7 @@ export class WebBedsService implements PlatformServiceInterface {
         page,
         sessionId,
         "Error during search.",
-        this.platform,
+        this.platform
       );
       await this.browserService.closePageInContext(sessionId, page);
     }
@@ -166,7 +166,7 @@ export class WebBedsService implements PlatformServiceInterface {
           platform: this.platform,
           step: "MFA code required.",
           url: page.url(),
-        },
+        }
       );
       const mfaCode = await this.eventsGateway.waitForMfaCode(sessionId);
       console.log(mfaCode);
@@ -180,7 +180,7 @@ export class WebBedsService implements PlatformServiceInterface {
   async searchForHotel(
     page: Page,
     hotel: HotelDetails,
-    sessionId: string,
+    sessionId: string
   ): Promise<boolean> {
     let searchText = hotel.displayName;
     while (true) {
@@ -195,7 +195,7 @@ export class WebBedsService implements PlatformServiceInterface {
         page,
         sessionId,
         `Trying search for '${searchText}'.`,
-        this.platform,
+        this.platform
       );
       // Check if "no results" message is present
       const noResultsMessage = await this.checkForNoResultsMessage(page);
@@ -224,7 +224,7 @@ export class WebBedsService implements PlatformServiceInterface {
             inner: option.innerHTML,
             all: option,
           }))
-          .filter((choice) => choice.id !== null),
+          .filter((choice) => choice.id !== null)
     );
 
     // Find the matching hotel name
@@ -255,7 +255,7 @@ export class WebBedsService implements PlatformServiceInterface {
 
   async useLLMToFindHotel(
     hotelChoices: { name: string; id: string }[],
-    hotel: HotelDetails,
+    hotel: HotelDetails
   ): Promise<{ name: string; id: string } | null> {
     const systemPrompt = `I need you to search a list of hotels, and return the listed name that matches exactly or most closely to a hotel I am looking for [QUERY]. 
       [LIST]
@@ -295,7 +295,7 @@ export class WebBedsService implements PlatformServiceInterface {
     hotel: HotelDetails,
     occupancy: { adults: number; children: number[] },
     dateRange: DateRange,
-    sessionId: string,
+    sessionId: string
   ) {
     await page.waitForTimeout(4000);
     await Promise.all([
@@ -307,7 +307,7 @@ export class WebBedsService implements PlatformServiceInterface {
       page,
       sessionId,
       "Changed URL to match occupancy and date.",
-      this.platform,
+      this.platform
     );
 
     await page.waitForSelector("div[data-testid='search-results-section']");
@@ -317,9 +317,9 @@ export class WebBedsService implements PlatformServiceInterface {
       page,
       sessionId,
       "New results loaded.",
-      this.platform,
+      this.platform
     );
-
+    await page.waitForTimeout(3000);
     const results: SearchResult[] = await page.$$eval(
       "div[data-testid='search-results-section'] li", // Select the main container for each hotel card
       (cards) =>
@@ -337,18 +337,18 @@ export class WebBedsService implements PlatformServiceInterface {
             price: price,
             address: "(address not listed)",
           };
-        }),
+        })
     );
     const match = await this.searchService.findMatchWithLLM(
       results,
       hotel.displayName,
-      hotel.formattedAddress,
+      hotel.formattedAddress
     );
     if (!match) {
       await this.searchService.triggerNoResultsNotification(
         page,
         sessionId,
-        this.platform,
+        this.platform
       );
       await this.browserService.closePageInContext(sessionId, page);
       return;
@@ -365,7 +365,7 @@ export class WebBedsService implements PlatformServiceInterface {
   updateUrl(
     url: string,
     { from, to }: DateRange,
-    { adults, children }: { adults: number; children: number[] },
+    { adults, children }: { adults: number; children: number[] }
   ): string {
     // Convert string dates to ISO format (yyyy-MM-dd)
     const formattedStartDate = DateTime.fromISO(from).toFormat("yyyy-MM-dd");
