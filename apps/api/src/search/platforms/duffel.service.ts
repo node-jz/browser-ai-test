@@ -4,8 +4,6 @@ https://docs.nestjs.com/providers#services
 
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { EventsGateway } from "src/events/events.gateway";
-import { OpenAiService } from "src/llm/openai.service";
 import { SessionsService } from "src/sessions/sessions/sessions.service";
 
 import { SearchService } from "../search.service";
@@ -16,9 +14,7 @@ import { BrowserService } from "src/browser/browser/browser.service";
 @Injectable()
 export class DuffelService implements PlatformServiceInterface {
   constructor(
-    private eventsGateway: EventsGateway,
     private configService: ConfigService,
-    private readonly openaiService: OpenAiService,
     private readonly searchService: SearchService,
     private readonly sessionsService: SessionsService,
     private readonly browserService: BrowserService
@@ -29,63 +25,42 @@ export class DuffelService implements PlatformServiceInterface {
     const { adults, children, hotel, dateRanges } = data;
 
     const dateRange = dateRanges[0];
-    // todo make use of multiple date ranges
-
     const searchUrl = `https://app.duffel.com/997a4f4c1d8725505ef8bf3/test/stays/results?checkInDate=${dateRange.from}&checkOutDate=${dateRange.to}&rooms=1&lat=${hotel.location.latitude}&long=${hotel.location.longitude}&loc=${encodeURIComponent(hotel.displayName)}&adults=${adults}&children=${children.length}&timestamp=${Date.now()}`;
 
     const context = this.browserService.getContext(sessionId);
     const page = await context.newPage();
-    try {
-      await page.goto(searchUrl);
-      let buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-      await this.eventsGateway.notifyEvent("progress", sessionId, {
-        platform: this.platform,
-        step: "Initial page loaded.",
-        image: buffer,
-        url: page.url(),
-      });
+    await this.searchService.triggerProgressNotification(
+      page,
+      sessionId,
+      "Navigating to duffel.",
+      this.platform
+    );
 
+    try {
+      await page.goto(searchUrl, { waitUntil: "domcontentloaded" });
       await page.waitForTimeout(4000);
 
-      buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-      await this.eventsGateway.notifyEvent("progress", sessionId, {
-        platform: this.platform,
-        step: "page loaded.",
-        image: buffer,
-        url: page.url(),
-      });
-
-      if (await page.locator('[data-qa="username"]').isVisible()) {
+      if (await page.locator("input#password").isVisible()) {
         if (await page.waitForSelector('form[method="post"]')) {
-          buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-          await this.eventsGateway.notifyEvent("progress", sessionId, {
-            platform: this.platform,
-            image: buffer,
-            step: "Filling out login form.",
-            url: page.url(),
-          });
+          await this.searchService.triggerProgressNotification(
+            page,
+            sessionId,
+            "Login required.",
+            this.platform
+          );
 
-          await page.getByPlaceholder("Enter your email address…").click();
+          await page.locator("input#email").click();
           await page
-            .getByPlaceholder("Enter your email address…")
+            .locator("input#email")
             .fill(this.configService.get<string>("DUFFEL_USERNAME"));
-          await page.getByPlaceholder("Enter your password…").click();
+          await page.locator("input#password").click();
           await page
-            .getByPlaceholder("Enter your password…")
+            .locator("input#password")
             .fill(this.configService.get<string>("DUFFEL_PASSWORD"));
-          await page.getByTestId("submit").click();
-
-          buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-          await this.eventsGateway.notifyEvent("progress", sessionId, {
-            platform: this.platform,
-            step: "Login form submitted.",
-            image: buffer,
-            url: page.url(),
-          });
-
+          await page.waitForTimeout(1000);
           await Promise.all([
             page.waitForNavigation(),
-            page.click('button[type="submit"]'),
+            page.getByTestId("submit").click(),
           ]);
 
           await this.searchService.safeNavigation(page, async () => {
@@ -96,42 +71,36 @@ export class DuffelService implements PlatformServiceInterface {
         await this.sessionsService.saveCookies(this.platform, context);
       }
 
-      buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-      await this.eventsGateway.notifyEvent("progress", sessionId, {
-        platform: this.platform,
-        step: "Waiting for search results to load.",
-        image: buffer,
-        url: page.url(),
-      });
+      await this.searchService.triggerProgressNotification(
+        page,
+        sessionId,
+        "Waiting for search results to load.",
+        this.platform
+      );
 
       try {
-        await page.waitForSelector("#results", {
-          timeout: 5000,
-        });
+        await page.waitForSelector("#results");
       } catch (e) {
         console.log("No results.", e.message ?? "");
-        buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-        await this.eventsGateway.notifyEvent("no-results", sessionId, {
-          platform: this.platform,
-          image: buffer,
-          url: page.url(),
-        });
+        await this.searchService.triggerNoResultsNotification(
+          page,
+          sessionId,
+          this.platform
+        );
         await this.browserService.closePageInContext(sessionId, page);
         return;
       }
 
-      buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-      await this.eventsGateway.notifyEvent("progress", sessionId, {
-        platform: this.platform,
-        step: "search results loaded.",
-        image: buffer,
-        url: page.url(),
-      });
-
       await page
         .locator(".LoadingBar_bar__XtMeA")
         .waitFor({ state: "detached" });
-      // Extract results
+
+      await this.searchService.triggerProgressNotification(
+        page,
+        sessionId,
+        "Search results, selecting best match.",
+        this.platform
+      );
       const results: SearchResult[] = await page.$$eval(
         "#results a.StaysResultCard_container__QEx7E",
         (links) =>
@@ -156,37 +125,37 @@ export class DuffelService implements PlatformServiceInterface {
         hotel.formattedAddress
       );
       if (!match) {
-        buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-        await this.eventsGateway.notifyEvent("no-results", sessionId, {
-          platform: this.platform,
-          image: buffer,
-          url: page.url(),
-        });
+        await this.searchService.triggerNoResultsNotification(
+          page,
+          sessionId,
+          this.platform
+        );
         await this.browserService.closePageInContext(sessionId, page);
         return;
       }
 
+      await this.searchService.triggerProgressNotification(
+        page,
+        sessionId,
+        "Match found. Opening booking page.",
+        this.platform
+      );
       await Promise.all([page.waitForNavigation(), page.goto(match.link)]);
-      buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-      await this.eventsGateway.notifyEvent("results", sessionId, {
+      await this.searchService.triggerNotification(page, sessionId, "results", {
         platform: this.platform,
+        step: "Results found.",
         match: match,
-        image: buffer,
         url: page.url(),
       });
 
       await this.browserService.closePageInContext(sessionId, page);
     } catch (error) {
-      const buffer = await page.screenshot({
-        fullPage: true,
-        type: "jpeg",
-      });
-      this.eventsGateway.notifyEvent("error", sessionId, {
-        platform: this.platform,
-        image: buffer,
-        url: page.url(),
-        message: error.message ?? "Error while searching",
-      });
+      await this.searchService.triggerErrorNotification(
+        page,
+        sessionId,
+        this.platform,
+        error.message ?? "Error while searching"
+      );
       console.error("Error during browser operation:", error.message);
       this.browserService.closePageInContext(sessionId, page);
       console.error(error);

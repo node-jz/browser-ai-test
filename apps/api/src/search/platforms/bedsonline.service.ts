@@ -35,22 +35,31 @@ export class BedsOnlineService implements PlatformServiceInterface {
     const context = this.browserService.getContext(sessionId);
     const page = await context.newPage();
     try {
-      await page.goto("https://app.bedsonline.com/main");
-
-      await page.waitForTimeout(2000);
-      let buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-      await this.eventsGateway.notifyEvent("progress", sessionId, {
-        platform: this.platform,
-        step: "login page loaded.",
-        image: buffer,
-        url: page.url(),
+      await this.searchService.triggerProgressNotification(
+        page,
+        sessionId,
+        `Navigating to ${this.platform}.`,
+        this.platform
+      );
+      await page.goto("https://app.bedsonline.com/main", {
+        waitUntil: "domcontentloaded",
       });
+
+      await page.waitForTimeout(3000);
+
       if (await page.locator('[data-qa="username"]').isVisible()) {
+        await this.searchService.triggerProgressNotification(
+          page,
+          sessionId,
+          "Login required.",
+          this.platform
+        );
+
         if (await page.getByRole("link", { name: "Allow all" }).isVisible()) {
           await page.getByRole("link", { name: "Allow all" }).click();
         }
         await page.waitForTimeout(2000);
-        // Fill the Username field
+
         await page
           .locator('[data-qa="username"]')
           .pressSequentially(
@@ -59,7 +68,6 @@ export class BedsOnlineService implements PlatformServiceInterface {
           );
 
         await page.waitForTimeout(2000);
-        // Fill the Password field
         await page
           .locator('[data-qa="password"]')
           .pressSequentially(
@@ -68,75 +76,54 @@ export class BedsOnlineService implements PlatformServiceInterface {
           );
 
         await page.waitForTimeout(2000);
-        buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-        await this.eventsGateway.notifyEvent("progress", sessionId, {
-          platform: this.platform,
-          step: "login form filled out.",
-          image: buffer,
-          url: page.url(),
-        });
 
         await Promise.all([page.click('[data-qa="login-button"]')]);
         await this.sessionsService.saveCookies(this.platform, context);
       }
 
       await page.waitForTimeout(2000);
-      buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-      await this.eventsGateway.notifyEvent("progress", sessionId, {
-        platform: this.platform,
-        step: "Search form loaded.",
-        image: buffer,
-        url: page.url(),
-      });
+      await this.searchService.triggerProgressNotification(
+        page,
+        sessionId,
+        "Search form loaded.",
+        this.platform
+      );
 
       await page.locator("#HOTEL_selector").click();
+
       const resultsFound = await this.searchForHotel(page, hotel, sessionId);
+
       await page.waitForTimeout(2000);
       if (!resultsFound) {
-        buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-        await this.eventsGateway.notifyEvent("no-results", sessionId, {
-          platform: this.platform,
-          url: page.url(),
-        });
+        await this.searchService.triggerNoResultsNotification(
+          page,
+          sessionId,
+          this.platform
+        );
       }
-
-      buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-      await this.eventsGateway.notifyEvent("progress", sessionId, {
-        platform: this.platform,
-        step: "hotel name entered.",
-        image: buffer,
-        url: page.url(),
-      });
 
       const hotelFoundAndSelected = await this.selectHotelFromList(page, hotel);
       if (!hotelFoundAndSelected) {
-        buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-        await this.eventsGateway.notifyEvent("no-results", sessionId, {
-          platform: this.platform,
-          url: page.url(),
-        });
+        await this.searchService.triggerNoResultsNotification(
+          page,
+          sessionId,
+          this.platform
+        );
+        await this.browserService.closePageInContext(sessionId, page);
+        return;
       }
 
-      buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-      await this.eventsGateway.notifyEvent("progress", sessionId, {
-        platform: this.platform,
-        step: "Selected hotel from list.",
-        image: buffer,
-        url: page.url(),
-      });
+      await this.searchService.triggerProgressNotification(
+        page,
+        sessionId,
+        "Selected best match from list. Searching for availability.",
+        this.platform
+      );
 
       await Promise.all([
         page.waitForNavigation(),
         page.locator('button[data-qa="btn_search_stay_themepark"]').click(),
       ]);
-
-      buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-      await this.eventsGateway.notifyEvent("progress", sessionId, {
-        platform: this.platform,
-        step: "Results loaded.",
-        image: buffer,
-        url: page.url(),
-      });
 
       await this.handleResultsPage(
         page,
@@ -147,16 +134,12 @@ export class BedsOnlineService implements PlatformServiceInterface {
       );
     } catch (e) {
       console.error(e);
-      const buffer = await page.screenshot({
-        fullPage: true,
-        type: "jpeg",
-      });
-      await this.eventsGateway.notifyEvent("error", sessionId, {
-        platform: this.platform,
-        step: "Error during search.",
-        image: buffer,
-        url: page.url(),
-      });
+      await this.searchService.triggerErrorNotification(
+        page,
+        sessionId,
+        "Error during search.",
+        this.platform
+      );
       await this.browserService.closePageInContext(sessionId, page);
     }
     await this.browserService.closePageInContext(sessionId, page);
@@ -174,24 +157,24 @@ export class BedsOnlineService implements PlatformServiceInterface {
         return false;
       }
 
-      // Remove the last word
-      searchText = words.slice(0, -1).join(" ");
-
       // Retry search with the reduced term
       await this.performHotelNameSearch(page, searchText);
-      const buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-      await this.eventsGateway.notifyEvent("progress", sessionId, {
-        platform: this.platform,
-        step: "Trying Search.",
-        image: buffer,
-        url: page.url(),
-      });
+
+      await this.searchService.triggerProgressNotification(
+        page,
+        sessionId,
+        `Trying search for '${searchText}'.`,
+        this.platform
+      );
       // Check if "no results" message is present
       const noResultsMessage = await this.checkForNoResultsMessage(page);
 
       if (!noResultsMessage) {
         return true;
       }
+
+      // Remove the last word
+      searchText = words.slice(0, -1).join(" ");
     }
   }
 
@@ -265,32 +248,24 @@ export class BedsOnlineService implements PlatformServiceInterface {
     dateRange: DateRange,
     sessionId: string
   ) {
-    let buffer: Buffer;
-    buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-    await this.eventsGateway.notifyEvent("progress", sessionId, {
-      platform: this.platform,
-      step: "Results loaded.",
-      image: buffer,
-      url: page.url(),
-    });
+    await this.searchService.triggerProgressNotification(
+      page,
+      sessionId,
+      "Initial results loaded without date and occupancy. Changing URL.",
+      this.platform
+    );
     await page.goto(this.updateUrl(page.url(), dateRange, occupancy));
-    buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-    await this.eventsGateway.notifyEvent("progress", sessionId, {
-      platform: this.platform,
-      step: "Changing URL.",
-      image: buffer,
-      url: page.url(),
-    });
     await page.waitForTimeout(3000);
 
     await page.waitForSelector("clientb2b-front-feature-results-list");
-    buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-    await this.eventsGateway.notifyEvent("progress", sessionId, {
-      platform: this.platform,
-      step: "New results loaded.",
-      image: buffer,
-      url: page.url(),
-    });
+
+    await this.searchService.triggerProgressNotification(
+      page,
+      sessionId,
+      "New results loaded with date and occupancy.",
+      this.platform
+    );
+
     (
       await page.waitForSelector(".feature-card-layout__card__body")
     ).isVisible();
@@ -325,27 +300,27 @@ export class BedsOnlineService implements PlatformServiceInterface {
             )?.innerText.trim() || "",
         }))
     );
+
     const match = await this.searchService.findMatchWithLLM(
       results,
       hotel.displayName,
       hotel.formattedAddress
     );
     if (!match) {
-      buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-      await this.eventsGateway.notifyEvent("no-results", sessionId, {
-        platform: this.platform,
-        url: page.url(),
-      });
+      await this.searchService.triggerNoResultsNotification(
+        page,
+        sessionId,
+        this.platform
+      );
       await this.browserService.closePageInContext(sessionId, page);
       return;
     }
 
-    buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-    await this.eventsGateway.notifyEvent("results", sessionId, {
-      platform: this.platform,
+    await this.searchService.triggerNotification(page, sessionId, "results", {
+      step: "Results found.",
       match: match,
-      image: buffer,
       url: page.url(),
+      platform: this.platform,
     });
   }
 

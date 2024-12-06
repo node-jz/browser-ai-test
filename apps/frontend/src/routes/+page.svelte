@@ -1,9 +1,21 @@
+<script context="module">
+	export type SearchStep = {
+		step: string;
+		screenshot?: string;
+		url: string;
+		type?: string;
+	};
+</script>
+
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
 	import { io } from 'socket.io-client';
 	import type { SearchProps } from '@api/search/platforms/types';
 	import { fail } from '@sveltejs/kit';
 	import SearchForm from './search/SearchForm.svelte';
+	import ResultItem from './search/ResultItem.svelte';
+	import ResultScreenshotThumbnail from './search/ResultScreenshotThumbnail.svelte';
+	import LinkIcon from './search/LinkIcon.svelte';
 	type Connection = {
 		steps: { step: string; screenshot?: string; url: string; type?: string }[];
 		loading: boolean;
@@ -58,7 +70,7 @@
 				if (!connections[platform]) {
 					initNewConnection(platform);
 				}
-				let progress: { step: string; screenshot?: string; url: string; type?: string } = {
+				let progress: SearchStep = {
 					step: step,
 					url: url,
 					type: 'progress'
@@ -78,7 +90,7 @@
 				if (!connections[platform]) {
 					initNewConnection(platform);
 				}
-				let progress: { step: string; screenshot?: string; url: string; type?: string } = {
+				let progress: SearchStep = {
 					step: step,
 					url: url,
 					type: 'requestMfaCode'
@@ -102,7 +114,7 @@
 			}) => {
 				const { platform, match, image, url } = data;
 
-				let progress: { step: string; screenshot?: string; url: string; type?: string } = {
+				let progress: SearchStep = {
 					step: `<a class="font-semibold text-sky-700" href=${match.link} target="_blank">${match.name}</a>`,
 					url,
 					type: 'results'
@@ -123,7 +135,7 @@
 		socket.on('no-results', (data: { platform: string; url: string; image?: Buffer }) => {
 			const { platform, url, image } = data;
 
-			let progress: { step: string; url: string; screenshot?: string; type?: string } = {
+			let progress: SearchStep = {
 				step: `No matches found.`,
 				url,
 				type: 'results'
@@ -142,7 +154,7 @@
 		socket.on('error', (data: { platform: string; message: string; image?: Buffer }) => {
 			const { platform, message, image } = data;
 
-			let progress: { step: string; screenshot?: string; type?: string } = {
+			let progress: SearchStep = {
 				step: message,
 				type: 'error'
 			};
@@ -186,9 +198,7 @@
 	}
 	const handleMfaCode = (e: SubmitEvent) => {
 		e.preventDefault();
-		console.log('mfa code submitted');
 		const code = (e.target as HTMLFormElement).mfaCode.value;
-		console.log(code);
 		socket.emit('mfaCode', { sessionId: room, mfaCode: code });
 	};
 
@@ -219,66 +229,42 @@
 			{/if}
 			{#each Object.keys(connections) as platform}
 				<div class="flex items-center gap-4 border-b py-4">
-					<!-- Most recent screenshot or placeholder -->
-					<div
-						class="flex h-16 w-24 items-center justify-center rounded-lg border border-slate-300 bg-slate-100"
-					>
-						{#if connections[platform].steps.length > 0 && connections[platform].steps[connections[platform].steps.length - 1].screenshot}
-							<a
-								class="h-16 w-24 overflow-clip"
-								href={connections[platform].steps[connections[platform].steps.length - 1]
-									.screenshot}
-								target="_blank"
-							>
-								<img
-									class="object-fit h-full w-auto rounded-lg object-top"
-									src={connections[platform].steps[connections[platform].steps.length - 1]
-										.screenshot}
-									alt="Screenshot"
-								/>
-							</a>
-						{:else}
-							<p class="text-4xl text-slate-600 opacity-30">?</p>
-						{/if}
-					</div>
+					{#if connections[platform].steps.length > 0}
+						<ResultScreenshotThumbnail
+							step={connections[platform].steps[connections[platform].steps.length - 1]}
+						/>
+					{/if}
 
 					<!-- Platform and Step Information -->
-					<div class="flex-1">
+					<div class="flex flex-1 flex-col gap-2">
 						<h2 class="text-lg font-medium text-sky-700">{platform}</h2>
 						<div class="inline-flex items-center gap-2 text-sm text-slate-600">
 							{#if connections[platform].steps.length > 0}
-								<a
-									target="_blank"
-									href={connections[platform].steps[connections[platform].steps.length - 1].url}
-									><svg
-										class="h-3 w-3"
-										xmlns="http://www.w3.org/2000/svg"
-										viewBox="0 0 512 512"
-										xml:space="preserve"
-										><path
-											fill="#6E83B7"
-											d="M329.5 298.515c-29.705 0-59.41-11.307-82.024-33.921-45.228-45.229-45.228-118.821 0-164.049l56.569-56.569c45.229-45.229 118.82-45.229 164.048 0 45.229 45.229 45.229 118.821 0 164.049l-56.569 56.569c-22.614 22.614-52.319 33.921-82.024 33.921zm-45.255-70.691c24.955 24.954 65.557 24.953 90.51 0l56.569-56.569c24.954-24.954 24.953-65.556 0-90.51-24.954-24.953-65.557-24.953-90.51 0l-56.569 56.569c-24.953 24.954-24.953 65.556 0 90.51l-18.385 18.384 18.385-18.384z"
-										/><path
-											fill="#6E83B7"
-											d="M126 502.015c-29.705 0-59.41-11.307-82.024-33.921-45.228-45.229-45.228-118.821 0-164.049l56.569-56.569c45.229-45.229 118.82-45.228 164.048 0 45.228 45.229 45.228 118.821 0 164.049l-56.569 56.569c-22.614 22.614-52.319 33.921-82.024 33.921zm56.568-236.485c-16.389 0-32.778 6.238-45.254 18.715l-56.569 56.569c-24.954 24.954-24.954 65.556 0 90.509 24.954 24.954 65.557 24.954 90.51 0l56.569-56.569c24.954-24.954 24.953-65.556 0-90.51-12.477-12.475-28.866-18.714-45.256-18.714z"
-										/><path
-											fill="#466089"
-											d="m154.077 314.08 159.999-160 43.84 43.84-159.999 160z"
-										/></svg
-									></a
-								>
+								<LinkIcon
+									url={connections[platform].steps[connections[platform].steps.length - 1].url}
+								/>
 								{@html connections[platform].steps[connections[platform].steps.length - 1].step}
-								{#if connections[platform].steps[connections[platform].steps.length - 1].type == 'requestMfaCode'}
-									<span class="text-red-500">MFA Code Required</span>
-									<form onsubmit={handleMfaCode}>
-										<input type="text" name="mfaCode" />
-										<button type="submit">Submit</button>
-									</form>
-								{/if}
 							{:else}
 								No steps yet.
 							{/if}
 						</div>
+						{#if connections[platform].steps[connections[platform].steps.length - 1].type == 'requestMfaCode'}
+							<div class="flex items-center gap-2">
+								<form onsubmit={handleMfaCode}>
+									<input
+										class="rounded border border-red-600 px-2 py-1 text-xs"
+										type="text"
+										name="mfaCode"
+									/>
+									<button
+										class="rounded border border-red-600 bg-red-500 px-2 py-1 text-xs font-semibold text-white hover:bg-red-600"
+										type="submit"
+									>
+										Send
+									</button>
+								</form>
+							</div>
+						{/if}
 					</div>
 
 					<!-- Status Tag -->
@@ -331,48 +317,9 @@
 
 				<!-- Expanded History Section -->
 				{#if connections[platform].showHistory}
-					<div class="mt-2 flex flex-col gap-3">
+					<div class="mt-2 flex flex-col">
 						{#each connections[platform].steps as step}
-							<div
-								class="flex items-center gap-3 border border-b-0 border-solid border-slate-200 px-4 py-2 first:border-t-0"
-							>
-								<div
-									class="flex aspect-video w-72 items-center justify-center rounded-lg border border-slate-300 bg-slate-100"
-								>
-									{#if step.screenshot}
-										<a href={step.screenshot} target="_blank">
-											<img
-												class="h-auto w-full rounded-lg"
-												src={step.screenshot}
-												alt="Screenshot"
-											/>
-										</a>
-									{:else}
-										<p class="text-4xl text-slate-600 opacity-30">?</p>
-									{/if}
-								</div>
-								<div class="inline-flex flex-1 items-center gap-1.5 text-sm">
-									<a target="_blank" href={step.url}
-										><svg
-											class="h-3 w-3"
-											xmlns="http://www.w3.org/2000/svg"
-											viewBox="0 0 512 512"
-											xml:space="preserve"
-											><path
-												fill="#6E83B7"
-												d="M329.5 298.515c-29.705 0-59.41-11.307-82.024-33.921-45.228-45.229-45.228-118.821 0-164.049l56.569-56.569c45.229-45.229 118.82-45.229 164.048 0 45.229 45.229 45.229 118.821 0 164.049l-56.569 56.569c-22.614 22.614-52.319 33.921-82.024 33.921zm-45.255-70.691c24.955 24.954 65.557 24.953 90.51 0l56.569-56.569c24.954-24.954 24.953-65.556 0-90.51-24.954-24.953-65.557-24.953-90.51 0l-56.569 56.569c-24.953 24.954-24.953 65.556 0 90.51l-18.385 18.384 18.385-18.384z"
-											/><path
-												fill="#6E83B7"
-												d="M126 502.015c-29.705 0-59.41-11.307-82.024-33.921-45.228-45.229-45.228-118.821 0-164.049l56.569-56.569c45.229-45.229 118.82-45.228 164.048 0 45.228 45.229 45.228 118.821 0 164.049l-56.569 56.569c-22.614 22.614-52.319 33.921-82.024 33.921zm56.568-236.485c-16.389 0-32.778 6.238-45.254 18.715l-56.569 56.569c-24.954 24.954-24.954 65.556 0 90.509 24.954 24.954 65.557 24.954 90.51 0l56.569-56.569c24.954-24.954 24.953-65.556 0-90.51-12.477-12.475-28.866-18.714-45.256-18.714z"
-											/><path
-												fill="#466089"
-												d="m154.077 314.08 159.999-160 43.84 43.84-159.999 160z"
-											/></svg
-										></a
-									>
-									{@html step.step}
-								</div>
-							</div>
+							<ResultItem {step} />
 						{/each}
 					</div>
 				{/if}

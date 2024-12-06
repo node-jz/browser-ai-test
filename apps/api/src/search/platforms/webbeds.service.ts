@@ -23,7 +23,7 @@ export class WebBedsService implements PlatformServiceInterface {
     private readonly sessionsService: SessionsService,
     private readonly browserService: BrowserService,
     private readonly openaiService: OpenAiService,
-    private readonly searchService: SearchService,
+    private readonly searchService: SearchService
   ) {}
 
   private readonly platform: string = "webbeds";
@@ -33,20 +33,26 @@ export class WebBedsService implements PlatformServiceInterface {
 
     const context = this.browserService.getContext(sessionId);
     const page = await context.newPage();
-    let buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-    await this.eventsGateway.notifyEvent("progress", sessionId, {
-      platform: this.platform,
-      step: "starting...",
-      image: buffer,
-      url: page.url(),
-    });
+    await this.searchService.triggerProgressNotification(
+      page,
+      sessionId,
+      `Navigating to ${this.platform}.`,
+      this.platform
+    );
 
     try {
       await Promise.all([
         page.waitForNavigation(),
         page.goto("https://book.webbeds.com/accommodations"),
       ]);
+      await page.waitForTimeout(4000);
       if (await page.getByLabel("Login ID").isVisible()) {
+        await this.searchService.triggerProgressNotification(
+          page,
+          sessionId,
+          "Login required.",
+          this.platform
+        );
         await page.getByLabel("Login ID").click();
         await page.getByLabel("Login ID").fill(process.env.WEBBEDS_USERNAME);
         await page.getByLabel("Password").click();
@@ -62,87 +68,84 @@ export class WebBedsService implements PlatformServiceInterface {
         ]);
 
         await this.handleMfa(page, sessionId);
+        await this.searchService.triggerProgressNotification(
+          page,
+          sessionId,
+          "Saving cookies to skip login next time.",
+          this.platform
+        );
+        await page.waitForTimeout(2000);
+        await this.sessionsService.saveCookies(this.platform, context);
       }
-      await page.waitForTimeout(2000);
-      await this.sessionsService.saveCookies(this.platform, context);
-      buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-      await this.eventsGateway.notifyEvent("progress", sessionId, {
-        platform: this.platform,
-        step: "login page finished.",
-        image: buffer,
-        url: page.url(),
-      });
-
+      await this.searchService.triggerProgressNotification(
+        page,
+        sessionId,
+        `Beginning search for ${hotel.displayName}.`,
+        this.platform
+      );
       await page.waitForTimeout(2000);
 
       const resultsFound = await this.searchForHotel(page, hotel, sessionId);
       await page.waitForTimeout(2000);
       if (!resultsFound) {
-        buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-        await this.eventsGateway.notifyEvent("no-results", sessionId, {
-          platform: this.platform,
-          url: page.url(),
-        });
+        await this.searchService.triggerNoResultsNotification(
+          page,
+          sessionId,
+          this.platform
+        );
       }
 
-      buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-      await this.eventsGateway.notifyEvent("progress", sessionId, {
-        platform: this.platform,
-        step: "hotel name entered.",
-        image: buffer,
-        url: page.url(),
-      });
+      await this.searchService.triggerProgressNotification(
+        page,
+        sessionId,
+        "hotel name entered.",
+        this.platform
+      );
 
       const hotelFoundAndSelected = await this.selectHotelFromList(page, hotel);
       if (!hotelFoundAndSelected) {
-        buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-        await this.eventsGateway.notifyEvent("no-results", sessionId, {
-          platform: this.platform,
-          url: page.url(),
-        });
+        await this.searchService.triggerNoResultsNotification(
+          page,
+          sessionId,
+          this.platform
+        );
         return;
       }
 
-      buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-      await this.eventsGateway.notifyEvent("progress", sessionId, {
-        platform: this.platform,
-        step: "Selected hotel from list.",
-        image: buffer,
-        url: page.url(),
-      });
+      await this.searchService.triggerProgressNotification(
+        page,
+        sessionId,
+        "Selected hotel from list.",
+        this.platform
+      );
 
       await Promise.all([
         page.waitForLoadState("networkidle"),
         page.locator('button[type="submit"]').click(),
       ]);
 
-      buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-      await this.eventsGateway.notifyEvent("progress", sessionId, {
-        platform: this.platform,
-        step: "Initial page loaded without date and occupancy set.",
-        image: buffer,
-        url: page.url(),
-      });
+      await this.searchService.triggerProgressNotification(
+        page,
+        sessionId,
+        "Initial page loaded without date and occupancy set.",
+        this.platform
+      );
 
       await this.handleResultsPage(
         page,
         hotel,
         { adults: adults, children: children },
         dateRange,
-        sessionId,
+        sessionId
       );
     } catch (e) {
       console.error(e);
-      const buffer = await page.screenshot({
-        fullPage: true,
-        type: "jpeg",
-      });
-      await this.eventsGateway.notifyEvent("error", sessionId, {
-        platform: this.platform,
-        step: "Error during search.",
-        image: buffer,
-        url: page.url(),
-      });
+      await this.searchService.triggerErrorNotification(
+        page,
+        sessionId,
+        "Error during search.",
+        this.platform
+      );
       await this.browserService.closePageInContext(sessionId, page);
     }
     await this.browserService.closePageInContext(sessionId, page);
@@ -154,16 +157,17 @@ export class WebBedsService implements PlatformServiceInterface {
       if ((await mfaFormField.isVisible()) === false) {
         return;
       }
-      const buffer = await page.screenshot({
-        fullPage: true,
-        type: "jpeg",
-      });
-      await this.eventsGateway.notifyEvent("requestMfaCode", sessionId, {
-        platform: this.platform,
-        step: "MFA code required.",
-        image: buffer,
-        url: page.url(),
-      });
+
+      await this.searchService.triggerNotification(
+        page,
+        sessionId,
+        "requestMfaCode",
+        {
+          platform: this.platform,
+          step: "MFA code required.",
+          url: page.url(),
+        }
+      );
       const mfaCode = await this.eventsGateway.waitForMfaCode(sessionId);
       console.log(mfaCode);
       await page.locator("#mfacode").fill(mfaCode);
@@ -176,7 +180,7 @@ export class WebBedsService implements PlatformServiceInterface {
   async searchForHotel(
     page: Page,
     hotel: HotelDetails,
-    sessionId: string,
+    sessionId: string
   ): Promise<boolean> {
     let searchText = hotel.displayName;
     while (true) {
@@ -184,25 +188,24 @@ export class WebBedsService implements PlatformServiceInterface {
       if (words.length <= 1) {
         return false;
       }
-
-      // Remove the last word
-      searchText = words.slice(0, -1).join(" ");
-
       // Retry search with the reduced term
       await this.inputHotelNameInSearchField(page, searchText);
-      const buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-      await this.eventsGateway.notifyEvent("progress", sessionId, {
-        platform: this.platform,
-        step: "Trying Search.",
-        image: buffer,
-        url: page.url(),
-      });
+
+      await this.searchService.triggerProgressNotification(
+        page,
+        sessionId,
+        `Trying search for '${searchText}'.`,
+        this.platform
+      );
       // Check if "no results" message is present
       const noResultsMessage = await this.checkForNoResultsMessage(page);
 
       if (!noResultsMessage) {
         return true;
       }
+
+      // Remove the last word
+      searchText = words.slice(0, -1).join(" ");
     }
   }
 
@@ -221,7 +224,7 @@ export class WebBedsService implements PlatformServiceInterface {
             inner: option.innerHTML,
             all: option,
           }))
-          .filter((choice) => choice.id !== null),
+          .filter((choice) => choice.id !== null)
     );
 
     // Find the matching hotel name
@@ -252,7 +255,7 @@ export class WebBedsService implements PlatformServiceInterface {
 
   async useLLMToFindHotel(
     hotelChoices: { name: string; id: string }[],
-    hotel: HotelDetails,
+    hotel: HotelDetails
   ): Promise<{ name: string; id: string } | null> {
     const systemPrompt = `I need you to search a list of hotels, and return the listed name that matches exactly or most closely to a hotel I am looking for [QUERY]. 
       [LIST]
@@ -292,33 +295,31 @@ export class WebBedsService implements PlatformServiceInterface {
     hotel: HotelDetails,
     occupancy: { adults: number; children: number[] },
     dateRange: DateRange,
-    sessionId: string,
+    sessionId: string
   ) {
-    let buffer: Buffer;
     await page.waitForTimeout(4000);
     await Promise.all([
       page.waitForNavigation(),
       page.goto(this.updateUrl(page.url(), dateRange, occupancy)),
     ]);
 
-    buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-    await this.eventsGateway.notifyEvent("progress", sessionId, {
-      platform: this.platform,
-      step: "Changed URL.",
-      image: buffer,
-      url: page.url(),
-    });
+    await this.searchService.triggerProgressNotification(
+      page,
+      sessionId,
+      "Changed URL to match occupancy and date.",
+      this.platform
+    );
 
     await page.waitForSelector("div[data-testid='search-results-section']");
     await page.waitForSelector("span[role='progressbar']");
     await page.getByRole("progressbar").waitFor({ state: "detached" });
-    buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-    await this.eventsGateway.notifyEvent("progress", sessionId, {
-      platform: this.platform,
-      step: "New results loaded.",
-      image: buffer,
-      url: page.url(),
-    });
+    await this.searchService.triggerProgressNotification(
+      page,
+      sessionId,
+      "New results loaded.",
+      this.platform
+    );
+
     const results: SearchResult[] = await page.$$eval(
       "div[data-testid='search-results-section'] li", // Select the main container for each hotel card
       (cards) =>
@@ -336,28 +337,27 @@ export class WebBedsService implements PlatformServiceInterface {
             price: price,
             address: "(address not listed)",
           };
-        }),
+        })
     );
     const match = await this.searchService.findMatchWithLLM(
       results,
       hotel.displayName,
-      hotel.formattedAddress,
+      hotel.formattedAddress
     );
     if (!match) {
-      buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-      await this.eventsGateway.notifyEvent("no-results", sessionId, {
-        platform: this.platform,
-        url: page.url(),
-      });
+      await this.searchService.triggerNoResultsNotification(
+        page,
+        sessionId,
+        this.platform
+      );
       await this.browserService.closePageInContext(sessionId, page);
       return;
     }
 
-    buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
-    await this.eventsGateway.notifyEvent("results", sessionId, {
+    await this.searchService.triggerNotification(page, sessionId, "results", {
       platform: this.platform,
+      step: "Results found.",
       match: match,
-      image: buffer,
       url: page.url(),
     });
   }
@@ -365,7 +365,7 @@ export class WebBedsService implements PlatformServiceInterface {
   updateUrl(
     url: string,
     { from, to }: DateRange,
-    { adults, children }: { adults: number; children: number[] },
+    { adults, children }: { adults: number; children: number[] }
   ): string {
     // Convert string dates to ISO format (yyyy-MM-dd)
     const formattedStartDate = DateTime.fromISO(from).toFormat("yyyy-MM-dd");

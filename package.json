@@ -1,7 +1,7 @@
 {
-  "name": "travel-search",
+  "name": "FAM-travel-search",
   "version": "1.0.0",
-  "description": "",
+  "description": "tool for FAM team to search for travel accommodations",
   "main": "index.js",
   "scripts": {
     "start:ui": "pnpm --filter frontend dev",
