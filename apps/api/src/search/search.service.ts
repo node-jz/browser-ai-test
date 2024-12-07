@@ -12,7 +12,7 @@ import { SearchResult } from "./platforms/types";
 export class BrowserError extends Error {
   constructor(
     public message: string,
-    public page: Page
+    public page: Page,
   ) {
     super(message);
     this.name = "BrowserError";
@@ -29,12 +29,12 @@ export type UpdateNotificationData = {
 export class SearchService {
   constructor(
     private readonly openaiService: OpenAiService,
-    private readonly eventsGateway: EventsGateway
+    private readonly eventsGateway: EventsGateway,
   ) {}
   async findMatchWithLLM(
     results: SearchResult[],
     name: string,
-    address: string
+    address: string,
   ): Promise<SearchResult | null> {
     let match = results.find((result) => result.name === name);
     if (!match) {
@@ -63,7 +63,7 @@ export class SearchService {
   async safeNavigation(
     page: Page,
     navigateCallback: () => Promise<void>,
-    timeout: number = 30000
+    timeout: number = 30000,
   ): Promise<boolean> {
     try {
       await Promise.all([
@@ -80,7 +80,7 @@ export class SearchService {
     page: Page,
     sessionId: string,
     step: string,
-    platform: string
+    platform: string,
   ) {
     await this.triggerNotification(page, sessionId, "progress", {
       step,
@@ -93,7 +93,7 @@ export class SearchService {
     page: Page,
     sessionId: string,
     step: string,
-    platform: string
+    platform: string,
   ) {
     await this.triggerNotification(
       page,
@@ -103,14 +103,14 @@ export class SearchService {
         step,
         platform,
       },
-      true
+      true,
     );
   }
 
   async triggerNoResultsNotification(
     page: Page,
     sessionId: string,
-    platform: string
+    platform: string,
   ) {
     await this.triggerNotification(page, sessionId, "no-results", {
       step: "No results found.",
@@ -122,7 +122,7 @@ export class SearchService {
     sessionId: string,
     event: "progress" | "error" | "requestMfaCode" | "results" | "no-results",
     data: UpdateNotificationData,
-    takeScreenshot: boolean = true
+    takeScreenshot: boolean = true,
   ) {
     let buffer: Buffer | null = null;
     if (takeScreenshot) {
