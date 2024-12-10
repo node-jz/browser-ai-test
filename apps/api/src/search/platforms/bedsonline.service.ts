@@ -49,7 +49,8 @@ export class BedsOnlineService implements PlatformServiceInterface {
       if (await page.getByRole("link", { name: "Allow all" }).isVisible()) {
         await page.getByRole("link", { name: "Allow all" }).click();
       }
-      if (await page.locator('[data-qa="username"]').isVisible()) {
+
+      if (page.url().includes("login")) {
         await this.searchService.triggerProgressNotification(
           page,
           sessionId,
@@ -76,7 +77,12 @@ export class BedsOnlineService implements PlatformServiceInterface {
 
         await page.waitForTimeout(2000);
 
-        await Promise.all([page.click('[data-qa="login-button"]')]);
+        await Promise.all([
+          page.waitForURL("https://app.bedsonline.com/main", {
+            waitUntil: "domcontentloaded",
+          }),
+          page.click('button[type="submit"]'),
+        ]);
         await this.sessionsService.saveCookies(this.platform, context);
       }
 
@@ -315,9 +321,10 @@ export class BedsOnlineService implements PlatformServiceInterface {
       return;
     }
 
+    // Ethan wants to save the url of the search page not the URL of the fact sheet page
     await this.searchService.triggerNotification(page, sessionId, "results", {
       step: "Results found.",
-      match: match,
+      match: { ...match, link: page.url() },
       url: page.url(),
       platform: this.platform,
     });
