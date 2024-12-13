@@ -34,7 +34,8 @@
 	let platforms = $state([
 		{ name: 'Duffel', value: 'duffel', checked: true },
 		{ name: 'Beds Online', value: 'bedsonline', checked: true },
-		{ name: 'Webbeds', value: 'webbeds', checked: true }
+		{ name: 'Webbeds', value: 'webbeds', checked: true },
+		{ name: 'Fora', value: 'fora', checked: true }
 		// Add more websites as needed
 	]);
 	let room: string | null = $state<string | null>(null);

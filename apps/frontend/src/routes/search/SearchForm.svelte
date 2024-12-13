@@ -23,7 +23,8 @@
 	let platforms = $state([
 		{ name: 'Duffel', value: 'duffel', checked: true },
 		{ name: 'Beds Online', value: 'bedsonline', checked: true },
-		{ name: 'Webbeds', value: 'webbeds', checked: true }
+		{ name: 'Webbeds', value: 'webbeds', checked: true },
+		{ name: 'Fora', value: 'fora', checked: true }
 	]);
 
 	const GOOGLE_API_KEY: string = import.meta.env.VITE_GOOGLE_API_KEY;
