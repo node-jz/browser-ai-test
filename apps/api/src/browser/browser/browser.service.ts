@@ -6,9 +6,8 @@ import {
   OnModuleDestroy,
   OnModuleInit,
 } from "@nestjs/common";
-import { Browser, BrowserContext, chromium, Page } from "playwright";
+import { Browser, BrowserContext, Page, chromium } from "playwright";
 import { SessionsService } from "src/sessions/sessions/sessions.service";
-
 @Injectable()
 export class BrowserService implements OnModuleInit, OnModuleDestroy {
   constructor(
@@ -22,7 +21,7 @@ export class BrowserService implements OnModuleInit, OnModuleDestroy {
   private contexts: Map<string, BrowserContext> = new Map();
 
   async onModuleInit() {
-    this.browser = await chromium.launch({ headless: true, timeout: 10000 });
+    this.browser = await chromium.launch({ headless: false, timeout: 10000 });
   }
 
   async onModuleDestroy() {

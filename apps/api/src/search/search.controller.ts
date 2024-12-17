@@ -21,7 +21,7 @@ export class SearchController {
     private readonly webBedsService: WebBedsService,
     private readonly foraService: ForaService,
     private readonly expediaService: ExpediaService,
-    private readonly eventsGateway: EventsGateway
+    private readonly eventsGateway: EventsGateway,
   ) {
     this.serviceMap = {
       duffel: this.duffelService,

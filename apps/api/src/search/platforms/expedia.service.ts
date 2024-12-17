@@ -21,7 +21,7 @@ export class ExpediaService implements PlatformServiceInterface {
     private sessionsService: SessionsService,
     private browserService: BrowserService,
     private readonly openaiService: OpenAiService,
-    private readonly searchService: SearchService
+    private readonly searchService: SearchService,
   ) {}
 
   private readonly platform: string = "expedia";
@@ -37,7 +37,7 @@ export class ExpediaService implements PlatformServiceInterface {
         page,
         sessionId,
         "Preparing URL for Expedia.",
-        this.platform
+        this.platform,
       );
       const formattedChildren = children.map((age) => `1_${age}`).join("%2C");
       const searchUrl = `https://www.expedia.com/Hotel-Search?destination=${encodeURIComponent(`${hotel.displayName},${hotel.city},${hotel.state}`)}&latLong=${hotel.location.latitude},${hotel.location.longitude}&startDate=${dateRange.from}&endDate=${dateRange.to}&d1=${dateRange.from}&d2=${dateRange.to}&adults=${adults}&flexibility=0_DAY&rooms=1&children=${formattedChildren}&sort=RECOMMENDED`;
@@ -62,7 +62,7 @@ export class ExpediaService implements PlatformServiceInterface {
         page,
         sessionId,
         "Error during search.",
-        this.platform
+        this.platform,
       );
       await this.browserService.closePageInContext(sessionId, page);
     }
