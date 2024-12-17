@@ -20,6 +20,7 @@ import { SearchController } from "./search/search.controller";
 import { SearchService } from "./search/search.service";
 import { SessionsController } from "./sessions/sessions.controller";
 import { SessionsService } from "./sessions/sessions/sessions.service";
+import { ExpediaService } from "./search/platforms/expedia.service";
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { SessionsService } from "./sessions/sessions/sessions.service";
     BedsOnlineService,
     WebBedsService,
     ForaService,
+    ExpediaService,
   ],
 })
 export class AppModule {}

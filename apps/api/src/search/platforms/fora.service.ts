@@ -22,7 +22,7 @@ export class ForaService implements PlatformServiceInterface {
     private sessionsService: SessionsService,
     private browserService: BrowserService,
     private readonly openaiService: OpenAiService,
-    private readonly searchService: SearchService
+    private readonly searchService: SearchService,
   ) {}
 
   private readonly platform: string = "fora";
@@ -38,12 +38,12 @@ export class ForaService implements PlatformServiceInterface {
         page,
         sessionId,
         `Navigating to ${this.platform}.`,
-        this.platform
+        this.platform,
       );
 
       const baseURL = "https://advisor.fora.travel/partners/hotels";
       const searchUrl = `${baseURL}?view_mode=list&supplierType=hotels&currency=USD&q=${encodeURIComponent(
-        hotel.displayName
+        hotel.displayName,
       )}&travelers=${adults}&dates=${dateRange.from}-${dateRange.to}&rooms=1`;
 
       console.log(searchUrl);
@@ -59,7 +59,7 @@ export class ForaService implements PlatformServiceInterface {
           page,
           sessionId,
           "Login required.",
-          this.platform
+          this.platform,
         );
         await page.waitForTimeout(2000);
 
@@ -92,7 +92,7 @@ export class ForaService implements PlatformServiceInterface {
         await this.searchService.triggerNoResultsNotification(
           page,
           sessionId,
-          this.platform
+          this.platform,
         );
         await this.browserService.closePageInContext(sessionId, page);
         return;
@@ -102,7 +102,7 @@ export class ForaService implements PlatformServiceInterface {
         page,
         sessionId,
         "Search results loaded.",
-        this.platform
+        this.platform,
       );
 
       await page.waitForTimeout(4000);
@@ -111,7 +111,7 @@ export class ForaService implements PlatformServiceInterface {
         (cards) =>
           (cards as HTMLAnchorElement[]).map((card) => {
             const container = card.querySelector(
-              "div.flex.flex-col"
+              "div.flex.flex-col",
             ) as HTMLElement;
             if (!container) {
               return {
@@ -130,17 +130,17 @@ export class ForaService implements PlatformServiceInterface {
               price:
                 (
                   container?.querySelector(
-                    ".text-mediumFS16.font-medium"
+                    ".text-mediumFS16.font-medium",
                   ) as HTMLElement
                 )?.innerText.trim() || "Unavailable",
               address:
                 (
                   container?.querySelector(
-                    ".text-small.text-secondaryDark span"
+                    ".text-small.text-secondaryDark span",
                   ) as HTMLElement
                 )?.innerText.trim() || "",
             };
-          })
+          }),
       );
 
       await page.waitForTimeout(2000);
@@ -148,13 +148,13 @@ export class ForaService implements PlatformServiceInterface {
       const match = await this.searchService.findMatchWithLLM(
         results,
         hotel.displayName,
-        hotel.formattedAddress
+        hotel.formattedAddress,
       );
       if (!match) {
         await this.searchService.triggerNoResultsNotification(
           page,
           sessionId,
-          this.platform
+          this.platform,
         );
         await this.browserService.closePageInContext(sessionId, page);
         return;
@@ -164,7 +164,7 @@ export class ForaService implements PlatformServiceInterface {
         page,
         sessionId,
         "Match found. Opening booking page.",
-        this.platform
+        this.platform,
       );
       await page.goto(match.link, { waitUntil: "domcontentloaded" });
       await page.waitForTimeout(2000);
@@ -182,7 +182,7 @@ export class ForaService implements PlatformServiceInterface {
         page,
         sessionId,
         "Error during search.",
-        this.platform
+        this.platform,
       );
       await this.browserService.closePageInContext(sessionId, page);
     }
