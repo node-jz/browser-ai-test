@@ -9,6 +9,7 @@ import { PlatformServiceInterface } from "./platforms/platform.interface";
 import { SearchProps } from "./platforms/types";
 import { WebBedsService } from "./platforms/webbeds.service";
 import { ExpediaService } from "./platforms/expedia.service";
+import { BookingComService } from "./platforms/bookingcom.service";
 
 @Controller("search")
 export class SearchController {
@@ -21,6 +22,7 @@ export class SearchController {
     private readonly webBedsService: WebBedsService,
     private readonly foraService: ForaService,
     private readonly expediaService: ExpediaService,
+    private readonly bookingcomService: BookingComService,
     private readonly eventsGateway: EventsGateway,
   ) {
     this.serviceMap = {
@@ -29,6 +31,7 @@ export class SearchController {
       webbeds: this.webBedsService,
       fora: this.foraService,
       expedia: this.expediaService,
+      bookingcom: this.bookingcomService,
     };
   }
 

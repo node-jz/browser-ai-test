@@ -21,7 +21,7 @@ import { SearchService } from "./search/search.service";
 import { SessionsController } from "./sessions/sessions.controller";
 import { SessionsService } from "./sessions/sessions/sessions.service";
 import { ExpediaService } from "./search/platforms/expedia.service";
-
+import { BookingComService } from "./search/platforms/bookingcom.service";
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -52,6 +52,7 @@ import { ExpediaService } from "./search/platforms/expedia.service";
     WebBedsService,
     ForaService,
     ExpediaService,
+    BookingComService,
   ],
 })
 export class AppModule {}

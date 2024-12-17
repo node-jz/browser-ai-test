@@ -12,7 +12,7 @@ import { SessionsService } from "src/sessions/sessions/sessions.service";
 export class BrowserService implements OnModuleInit, OnModuleDestroy {
   constructor(
     @Inject(forwardRef(() => SessionsService))
-    private readonly sessionsService: SessionsService
+    private readonly sessionsService: SessionsService,
   ) {}
 
   private readonly logger = new Logger(BrowserService.name);
@@ -21,7 +21,7 @@ export class BrowserService implements OnModuleInit, OnModuleDestroy {
   private contexts: Map<string, BrowserContext> = new Map();
 
   async onModuleInit() {
-    this.browser = await chromium.launch({ headless: false, timeout: 10000 });
+    this.browser = await chromium.launch({ headless: true, timeout: 10000 });
   }
 
   async onModuleDestroy() {

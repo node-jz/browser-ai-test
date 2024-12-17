@@ -36,7 +36,8 @@
 		{ name: 'Beds Online', value: 'bedsonline', checked: true },
 		{ name: 'Webbeds', value: 'webbeds', checked: true },
 		{ name: 'Fora', value: 'fora', checked: true },
-		{ name: 'Expedia', value: 'expedia', checked: true }
+		{ name: 'Expedia', value: 'expedia', checked: true },
+		{ name: 'Booking.com', value: 'bookingcom', checked: true }
 	]);
 	let room: string | null = $state<string | null>(null);
 

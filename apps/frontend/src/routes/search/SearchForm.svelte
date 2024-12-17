@@ -21,11 +21,12 @@
 	let childrenAges = $state<number[]>([]);
 
 	let platforms = $state([
-		{ name: 'Duffel', value: 'duffel', checked: true },
-		{ name: 'Beds Online', value: 'bedsonline', checked: true },
-		{ name: 'Webbeds', value: 'webbeds', checked: true },
-		{ name: 'Fora', value: 'fora', checked: true },
-		{ name: 'Expedia', value: 'expedia', checked: true }
+		{ name: 'Duffel', value: 'duffel', checked: true, blocked: false },
+		{ name: 'Beds Online', value: 'bedsonline', checked: true, blocked: false },
+		{ name: 'Webbeds', value: 'webbeds', checked: true, blocked: false },
+		{ name: 'Fora', value: 'fora', checked: true, blocked: false },
+		{ name: 'Expedia', value: 'expedia', checked: true, blocked: true },
+		{ name: 'Booking.com', value: 'bookingcom', checked: true, blocked: false }
 	]);
 
 	const GOOGLE_API_KEY: string = import.meta.env.VITE_GOOGLE_API_KEY;
@@ -165,12 +166,6 @@
 				/>
 			</div>
 		{/each}
-		<button
-			onclick={addDateRange}
-			class="rounded-md bg-blue-500 p-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-600"
-		>
-			+ Add Date Range
-		</button>
 	</div>
 
 	<div class="mt-6">
@@ -227,12 +222,20 @@
 	</div>
 
 	<div class="mt-6">
-		<h4 class="mb-3 text-lg font-medium">Platforms</h4>
-		<div class="flex space-x-4">
+		<h4 class="mb-1 text-lg font-medium">Platforms</h4>
+		<div class="mb-2 text-xs text-gray-600">
+			<span class="font-bold text-red-500">*</span>these platforms are blocked and will just link to
+			the search page.
+		</div>
+		<div class="grid grid-cols-2 gap-4">
 			{#each platforms as platform}
 				<div>
 					<input type="checkbox" bind:checked={platform.checked} value={platform.value} />
-					<label>{platform.name}</label>
+					<label
+						>{platform.name}{#if platform.blocked}
+							<span class="text-xs font-bold text-red-500">*</span>
+						{/if}</label
+					>
 				</div>
 			{/each}
 		</div>
