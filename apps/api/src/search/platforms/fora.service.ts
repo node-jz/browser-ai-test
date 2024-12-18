@@ -155,7 +155,7 @@ export class ForaService implements PlatformServiceInterface {
     try {
       await page.waitForSelector(
         'h1#headingText:has-text("Verify it\'s you")',
-        { timeout: 10000 }
+        { timeout: 20000 }
       );
       await page.click(
         'div[role="link"][data-challengetype="9"][data-sendmethod="SMS"]'
