@@ -1,4 +1,4 @@
-<script context="module">
+<script module>
 	export type SearchStep = {
 		step: string;
 		screenshot?: string;

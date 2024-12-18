@@ -22,7 +22,7 @@ export class BookingComService implements PlatformServiceInterface {
     private sessionsService: SessionsService,
     private browserService: BrowserService,
     private readonly openaiService: OpenAiService,
-    private readonly searchService: SearchService
+    private readonly searchService: SearchService,
   ) {}
 
   private readonly platform: string = "bookingcom";
@@ -38,7 +38,7 @@ export class BookingComService implements PlatformServiceInterface {
         page,
         sessionId,
         "Preparing Booking.com search.",
-        this.platform
+        this.platform,
       );
       await page.goto("https://www.booking.com/index.html", {
         waitUntil: "domcontentloaded",
@@ -48,7 +48,7 @@ export class BookingComService implements PlatformServiceInterface {
         if (
           await page.waitForSelector(
             "button[aria-label='Dismiss sign-in info.']",
-            { timeout: 5000 }
+            { timeout: 5000 },
           )
         ) {
           await page
@@ -63,7 +63,7 @@ export class BookingComService implements PlatformServiceInterface {
         page,
         sessionId,
         "Searching for hotel.",
-        this.platform
+        this.platform,
       );
 
       await this.searchForHotel(page, hotel, sessionId);
@@ -72,7 +72,7 @@ export class BookingComService implements PlatformServiceInterface {
         page,
         sessionId,
         "Submitting search without dates and occupancy.",
-        this.platform
+        this.platform,
       );
       await page.pause();
       await Promise.all([
@@ -85,13 +85,13 @@ export class BookingComService implements PlatformServiceInterface {
         dateRange.from,
         dateRange.to,
         adults,
-        children
+        children,
       );
       await this.searchService.triggerProgressNotification(
         page,
         sessionId,
         "Updating search with dates and occupancy.",
-        this.platform
+        this.platform,
       );
 
       await page.goto(updatedUrl, { waitUntil: "domcontentloaded" });
@@ -100,7 +100,7 @@ export class BookingComService implements PlatformServiceInterface {
         page,
         sessionId,
         "Results page loaded.",
-        this.platform
+        this.platform,
       );
 
       const results: SearchResult[] = await page.$$eval(
@@ -111,29 +111,29 @@ export class BookingComService implements PlatformServiceInterface {
             name:
               (
                 link.querySelector(
-                  "div[data-testid='title']"
+                  "div[data-testid='title']",
                 ) as HTMLParagraphElement
               )?.innerText || "",
             price: "00.00",
             address:
               (
                 link.querySelector(
-                  "span[data-testid='address']"
+                  "span[data-testid='address']",
                 ) as HTMLParagraphElement
               )?.innerText || "",
-          }))
+          })),
       );
 
       const match = await this.searchService.findMatchWithLLM(
         results,
         hotel.displayName,
-        hotel.formattedAddress
+        hotel.formattedAddress,
       );
       if (!match) {
         await this.searchService.triggerNoResultsNotification(
           page,
           sessionId,
-          this.platform
+          this.platform,
         );
         await this.browserService.closePageInContext(sessionId, page);
         return;
@@ -143,7 +143,7 @@ export class BookingComService implements PlatformServiceInterface {
         page,
         sessionId,
         "Match found. Opening booking page.",
-        this.platform
+        this.platform,
       );
       await Promise.all([page.waitForNavigation(), page.goto(match.link)]);
       await this.searchService.triggerNotification(page, sessionId, "results", {
@@ -160,7 +160,7 @@ export class BookingComService implements PlatformServiceInterface {
         page,
         sessionId,
         "Error during search.",
-        this.platform
+        this.platform,
       );
       await this.browserService.closePageInContext(sessionId, page);
     }
@@ -170,7 +170,7 @@ export class BookingComService implements PlatformServiceInterface {
   async searchForHotel(
     page: Page,
     hotel: HotelDetails,
-    sessionId: string
+    sessionId: string,
   ): Promise<boolean> {
     let searchText = hotel.displayName;
     while (true) {
@@ -188,7 +188,7 @@ export class BookingComService implements PlatformServiceInterface {
         page,
         sessionId,
         `Trying search for '${searchText}'.`,
-        this.platform
+        this.platform,
       );
       // Check if "no results" message is present
       /*const noResultsMessage = await this.checkForNoResultsMessage(page);
@@ -217,7 +217,7 @@ export class BookingComService implements PlatformServiceInterface {
             inner: option.innerHTML,
             all: option,
           }))
-          .filter((choice) => choice.id !== null)
+          .filter((choice) => choice.id !== null),
     );
 
     // Find the matching hotel name
@@ -243,7 +243,7 @@ export class BookingComService implements PlatformServiceInterface {
 
   async useLLMToFindHotel(
     hotelChoices: { name: string; id: string }[],
-    hotel: HotelDetails
+    hotel: HotelDetails,
   ): Promise<{ name: string; id: string } | null> {
     const systemPrompt = `I need you to search a list of hotels, and return the listed name that matches exactly or most closely to a hotel I am looking for [QUERY]. 
       [LIST]
@@ -275,7 +275,7 @@ export class BookingComService implements PlatformServiceInterface {
     checkInDate: string, // Format: yyyy-MM-dd
     checkOutDate: string, // Format: yyyy-MM-dd
     adults: number,
-    children: number[] // Array of ages
+    children: number[], // Array of ages
   ): string {
     const urlObj = new URL(baseUrl);
 
