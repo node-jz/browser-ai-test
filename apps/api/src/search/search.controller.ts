@@ -4,12 +4,14 @@ import { DuffelService } from "src/search/platforms/duffel.service";
 import { SessionsService } from "src/sessions/sessions/sessions.service";
 
 import { BedsOnlineService } from "./platforms/bedsonline.service";
+import { BookingComService } from "./platforms/bookingcom.service";
+import { ExpediaService } from "./platforms/expedia.service";
 import { ForaService } from "./platforms/fora.service";
 import { PlatformServiceInterface } from "./platforms/platform.interface";
+import { TpiService } from "./platforms/tpi.service";
+import { TravelEdgeService } from "./platforms/traveledge.service";
 import { SearchProps } from "./platforms/types";
 import { WebBedsService } from "./platforms/webbeds.service";
-import { ExpediaService } from "./platforms/expedia.service";
-import { BookingComService } from "./platforms/bookingcom.service";
 
 @Controller("search")
 export class SearchController {
@@ -23,7 +25,9 @@ export class SearchController {
     private readonly foraService: ForaService,
     private readonly expediaService: ExpediaService,
     private readonly bookingcomService: BookingComService,
-    private readonly eventsGateway: EventsGateway,
+    private readonly tpiService: TpiService,
+    private readonly travelEdgeService: TravelEdgeService,
+    private readonly eventsGateway: EventsGateway
   ) {
     this.serviceMap = {
       duffel: this.duffelService,
@@ -32,6 +36,8 @@ export class SearchController {
       fora: this.foraService,
       expedia: this.expediaService,
       bookingcom: this.bookingcomService,
+      tpi: this.tpiService,
+      traveledge: this.travelEdgeService,
     };
   }
 

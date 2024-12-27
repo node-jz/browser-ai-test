@@ -24,9 +24,11 @@
 		{ name: 'Duffel', value: 'duffel', checked: true, blocked: false },
 		{ name: 'Beds Online', value: 'bedsonline', checked: true, blocked: false },
 		{ name: 'Webbeds', value: 'webbeds', checked: true, blocked: false },
+		{ name: 'TPI', value: 'tpi', checked: true, blocked: false },
 		{ name: 'Fora', value: 'fora', checked: true, blocked: false },
 		{ name: 'Expedia', value: 'expedia', checked: true, blocked: true },
-		{ name: 'Booking.com', value: 'bookingcom', checked: true, blocked: false }
+		{ name: 'Booking.com', value: 'bookingcom', checked: true, blocked: false },
+		{ name: 'Travel Edge', value: 'traveledge', checked: true, blocked: false }
 	]);
 
 	const GOOGLE_API_KEY: string = import.meta.env.VITE_GOOGLE_API_KEY;

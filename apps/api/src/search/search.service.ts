@@ -126,7 +126,7 @@ export class SearchService {
   ) {
     let buffer: Buffer | null = null;
     if (takeScreenshot) {
-      buffer = await page.screenshot({ fullPage: true, type: "jpeg" });
+      buffer = await page.screenshot({ fullPage: false, type: "jpeg" });
     }
     await this.eventsGateway.notifyEvent(event, sessionId, {
       ...data,

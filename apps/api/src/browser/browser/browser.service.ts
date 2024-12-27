@@ -13,7 +13,7 @@ import { SessionsService } from "src/sessions/sessions/sessions.service";
 export class BrowserService implements OnModuleInit, OnModuleDestroy {
   constructor(
     @Inject(forwardRef(() => SessionsService))
-    private readonly sessionsService: SessionsService,
+    private readonly sessionsService: SessionsService
   ) {}
 
   private readonly logger = new Logger(BrowserService.name);
@@ -23,7 +23,7 @@ export class BrowserService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit() {
     this.browser = await chromium.launch({
-      headless: true,
+      headless: process.env.NODE_ENV === "production",
       timeout: 10000,
     });
   }

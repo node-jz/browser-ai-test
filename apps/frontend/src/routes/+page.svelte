@@ -35,9 +35,11 @@
 		{ name: 'Duffel', value: 'duffel', checked: true },
 		{ name: 'Beds Online', value: 'bedsonline', checked: true },
 		{ name: 'Webbeds', value: 'webbeds', checked: true },
+		{ name: 'TPI', value: 'tpi', checked: true },
 		{ name: 'Fora', value: 'fora', checked: true },
 		{ name: 'Expedia', value: 'expedia', checked: true },
-		{ name: 'Booking.com', value: 'bookingcom', checked: true }
+		{ name: 'Booking.com', value: 'bookingcom', checked: true },
+		{ name: 'Travel Edge', value: 'traveledge', checked: true }
 	]);
 	let room: string | null = $state<string | null>(null);
 
