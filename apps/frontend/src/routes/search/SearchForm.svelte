@@ -21,14 +21,16 @@
 	let childrenAges = $state<number[]>([]);
 
 	let platforms = $state([
-		{ name: 'Duffel', value: 'duffel', checked: true, blocked: false },
-		{ name: 'Beds Online', value: 'bedsonline', checked: true, blocked: false },
-		{ name: 'Webbeds', value: 'webbeds', checked: true, blocked: false },
-		{ name: 'TPI', value: 'tpi', checked: true, blocked: false },
-		{ name: 'Fora', value: 'fora', checked: true, blocked: false },
-		{ name: 'Expedia', value: 'expedia', checked: true, blocked: true },
-		{ name: 'Booking.com', value: 'bookingcom', checked: true, blocked: false },
-		{ name: 'Travel Edge', value: 'traveledge', checked: true, blocked: false }
+		{ name: 'Duffel', value: 'duffel', checked: true, blocked: false, type: 'private' },
+		{ name: 'Beds Online', value: 'bedsonline', checked: true, blocked: false, type: 'private' },
+		{ name: 'Webbeds', value: 'webbeds', checked: true, blocked: false, type: 'private' },
+		{ name: 'TPI', value: 'tpi', checked: true, blocked: false, type: 'private' },
+		{ name: 'Travel Edge', value: 'traveledge', checked: true, blocked: false, type: 'private' },
+		{ name: 'Fora', value: 'fora', checked: true, blocked: false, type: 'private' },
+		{ name: 'Expedia', value: 'expedia', checked: true, blocked: true, type: 'public' },
+		{ name: 'Priceline', value: 'priceline', checked: true, blocked: true, type: 'public' },
+		{ name: 'Booking.com', value: 'bookingcom', checked: true, blocked: false, type: 'public' },
+		{ name: 'Google Hotels', value: 'googleHotels', checked: true, blocked: false, type: 'public' }
 	]);
 
 	const GOOGLE_API_KEY: string = import.meta.env.VITE_GOOGLE_API_KEY;
@@ -115,6 +117,13 @@
 		} else {
 			childrenAges = childrenAges.slice(0, children);
 		}
+	}
+
+	function selectNoneOfType(type: 'private' | 'public') {
+		platforms = platforms.map((platform) => ({
+			...platform,
+			checked: platform.type === type ? false : platform.checked
+		}));
 	}
 </script>
 
@@ -229,17 +238,45 @@
 			<span class="font-bold text-red-500">*</span>these platforms are blocked and will just link to
 			the search page.
 		</div>
-		<div class="grid grid-cols-2 gap-4">
-			{#each platforms as platform}
-				<div>
-					<input type="checkbox" bind:checked={platform.checked} value={platform.value} />
-					<label
-						>{platform.name}{#if platform.blocked}
-							<span class="text-xs font-bold text-red-500">*</span>
-						{/if}</label
-					>
-				</div>
-			{/each}
+		<div class="mb-6 flex flex-col gap-2">
+			<span class="mb-1 text-sm font-medium text-gray-600"
+				>Private Services <button
+					class="text-xs font-bold text-blue-500"
+					onclick={() => selectNoneOfType('private')}>select none</button
+				></span
+			>
+			<div class="grid grid-cols-2 gap-3">
+				{#each platforms.filter((platform) => platform.type === 'private') as platform}
+					<div>
+						<input type="checkbox" bind:checked={platform.checked} value={platform.value} />
+						<label
+							>{platform.name}{#if platform.blocked}
+								<span class="text-xs font-bold text-red-500">*</span>
+							{/if}</label
+						>
+					</div>
+				{/each}
+			</div>
+		</div>
+		<div class="flex flex-col gap-2">
+			<span class="mb-1 text-sm font-medium text-gray-600"
+				>Public Websites <button
+					class="text-xs font-bold text-blue-500"
+					onclick={() => selectNoneOfType('public')}>select none</button
+				></span
+			>
+			<div class="grid grid-cols-2 gap-4">
+				{#each platforms.filter((platform) => platform.type === 'public') as platform}
+					<div>
+						<input type="checkbox" bind:checked={platform.checked} value={platform.value} />
+						<label
+							>{platform.name}{#if platform.blocked}
+								<span class="text-xs font-bold text-red-500">*</span>
+							{/if}</label
+						>
+					</div>
+				{/each}
+			</div>
 		</div>
 	</div>
 	<div class="mt-6">

@@ -8,8 +8,10 @@ import { BookingComService } from "./platforms/bookingcom.service";
 import { ExpediaService } from "./platforms/expedia.service";
 import { ForaService } from "./platforms/fora.service";
 import { PlatformServiceInterface } from "./platforms/platform.interface";
+import { PricelineService } from "./platforms/priceline.service";
 import { TpiService } from "./platforms/tpi.service";
 import { TravelEdgeService } from "./platforms/traveledge.service";
+import { GoogleHotelsService } from "./platforms/googleHotels.service";
 import { SearchProps } from "./platforms/types";
 import { WebBedsService } from "./platforms/webbeds.service";
 
@@ -27,7 +29,9 @@ export class SearchController {
     private readonly bookingcomService: BookingComService,
     private readonly tpiService: TpiService,
     private readonly travelEdgeService: TravelEdgeService,
-    private readonly eventsGateway: EventsGateway
+    private readonly pricelineService: PricelineService,
+    private readonly googleHotelsService: GoogleHotelsService,
+    private readonly eventsGateway: EventsGateway,
   ) {
     this.serviceMap = {
       duffel: this.duffelService,
@@ -38,6 +42,8 @@ export class SearchController {
       bookingcom: this.bookingcomService,
       tpi: this.tpiService,
       traveledge: this.travelEdgeService,
+      priceline: this.pricelineService,
+      googleHotels: this.googleHotelsService,
     };
   }
 

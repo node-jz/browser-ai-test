@@ -39,7 +39,9 @@
 		{ name: 'Fora', value: 'fora', checked: true },
 		{ name: 'Expedia', value: 'expedia', checked: true },
 		{ name: 'Booking.com', value: 'bookingcom', checked: true },
-		{ name: 'Travel Edge', value: 'traveledge', checked: true }
+		{ name: 'Google Hotels', value: 'googleHotels', checked: true },
+		{ name: 'Travel Edge', value: 'traveledge', checked: true },
+		{ name: 'Priceline', value: 'priceline', checked: true }
 	]);
 	let room: string | null = $state<string | null>(null);
 

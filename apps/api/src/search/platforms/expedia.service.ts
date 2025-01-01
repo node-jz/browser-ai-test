@@ -47,7 +47,7 @@ export class ExpediaService implements PlatformServiceInterface {
         step: "Link generated.",
         match: {
           link: searchUrl,
-          name: "Search manually on Expedia",
+          name: "Browse results manually on Expedia",
           price: "Unavailable",
           address: hotel.formattedAddress,
         },

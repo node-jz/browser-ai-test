@@ -21,7 +21,7 @@ export class TravelEdgeService implements PlatformServiceInterface {
     private readonly searchService: SearchService,
     private readonly sessionsService: SessionsService,
     private readonly browserService: BrowserService,
-    private readonly openaiService: OpenAiService
+    private readonly openaiService: OpenAiService,
   ) {}
 
   private readonly platform: string = "traveledge";
@@ -44,7 +44,7 @@ export class TravelEdgeService implements PlatformServiceInterface {
       page,
       sessionId,
       "Login successful.",
-      this.platform
+      this.platform,
     );
   }
 
@@ -66,7 +66,7 @@ export class TravelEdgeService implements PlatformServiceInterface {
       page,
       sessionId,
       "Navigating to Travel Edge.",
-      this.platform
+      this.platform,
     );
 
     try {
@@ -86,7 +86,7 @@ export class TravelEdgeService implements PlatformServiceInterface {
         page,
         sessionId,
         "Clicking the hotel tab.",
-        this.platform
+        this.platform,
       );
 
       const resultsFound = await this.searchForHotel(page, hotel, sessionId);
@@ -94,11 +94,11 @@ export class TravelEdgeService implements PlatformServiceInterface {
       /** Date and occupancy */
       const formattedCheckInDate = DateTime.fromFormat(
         dateRange.from,
-        "yyyy-MM-dd"
+        "yyyy-MM-dd",
       ).toFormat("MM/dd/yyyy");
       const formattedCheckOutDate = DateTime.fromFormat(
         dateRange.to,
-        "yyyy-MM-dd"
+        "yyyy-MM-dd",
       ).toFormat("MM/dd/yyyy");
       const checkInDateInput = page
         .locator(`input[placeholder="mm/dd/yyyy"]`)
@@ -132,7 +132,7 @@ export class TravelEdgeService implements PlatformServiceInterface {
         state: "visible",
       });
       const childAgeSection = page.locator(
-        "div.room-body > div > div:nth-child(3)"
+        "div.room-body > div > div:nth-child(3)",
       );
 
       await page.waitForTimeout(2000);
@@ -143,7 +143,7 @@ export class TravelEdgeService implements PlatformServiceInterface {
       const dropdownCount = await childAgeSelectors.count();
       if (dropdownCount !== children.length) {
         console.error(
-          `Expected ${children.length} dropdowns, but found ${dropdownCount}`
+          `Expected ${children.length} dropdowns, but found ${dropdownCount}`,
         );
         await this.browserService.closePageInContext(sessionId, page);
         return;
@@ -163,7 +163,7 @@ export class TravelEdgeService implements PlatformServiceInterface {
         await this.searchService.triggerNoResultsNotification(
           page,
           sessionId,
-          this.platform
+          this.platform,
         );
       }
 
@@ -174,7 +174,7 @@ export class TravelEdgeService implements PlatformServiceInterface {
         page,
         sessionId,
         "Error during search.",
-        this.platform
+        this.platform,
       );
       await this.browserService.closePageInContext(sessionId, page);
     }
@@ -184,7 +184,7 @@ export class TravelEdgeService implements PlatformServiceInterface {
   async searchForHotel(
     page: Page,
     hotel: HotelDetails,
-    sessionId: string
+    sessionId: string,
   ): Promise<boolean> {
     let searchText = hotel.displayName;
     while (true) {
@@ -196,7 +196,7 @@ export class TravelEdgeService implements PlatformServiceInterface {
         page,
         sessionId,
         `Trying search for '${searchText}'.`,
-        this.platform
+        this.platform,
       );
       // Retry search with the reduced term
       await this.performHotelNameSearch(page, searchText);
@@ -222,8 +222,8 @@ export class TravelEdgeService implements PlatformServiceInterface {
 
     const hotelChoices = await page.$$eval(".pac-item", (links) =>
       Array.from(links).map((element) =>
-        element.textContent.trim().slice(0, -1)
-      )
+        element.textContent.trim().slice(0, -1),
+      ),
     );
     let selectedHotelName = null;
     for (const choice of hotelChoices) {
@@ -246,7 +246,7 @@ export class TravelEdgeService implements PlatformServiceInterface {
 
   async useLLMToFindHotel(
     hotelChoices: string[],
-    hotel: HotelDetails
+    hotel: HotelDetails,
   ): Promise<string | null> {
     const systemPrompt = `I need you to search a list of hotels, and return the listed name that matches exactly or most closely to a hotel I am looking for [QUERY]. 
       [LIST]
@@ -286,7 +286,7 @@ export class TravelEdgeService implements PlatformServiceInterface {
       page,
       sessionId,
       "Results loaded.",
-      this.platform
+      this.platform,
     );
     await page.waitForTimeout(3000);
     await page.waitForSelector("div.hotel-list-item", {
@@ -305,19 +305,19 @@ export class TravelEdgeService implements PlatformServiceInterface {
             (card.querySelector(".price-col") as HTMLElement)?.innerText ||
             "00.00",
           address: "",
-        }))
+        })),
     );
 
     const match = await this.searchService.findMatchWithLLM(
       results,
       hotel.displayName,
-      hotel.formattedAddress
+      hotel.formattedAddress,
     );
     if (!match) {
       await this.searchService.triggerNoResultsNotification(
         page,
         sessionId,
-        this.platform
+        this.platform,
       );
       await this.browserService.closePageInContext(sessionId, page);
       return;
@@ -334,13 +334,13 @@ export class TravelEdgeService implements PlatformServiceInterface {
   updateUrl(
     url: string,
     { from, to }: DateRange,
-    { adults, children }: { adults: number; children: number[] }
+    { adults, children }: { adults: number; children: number[] },
   ): string {
     const newCheckIn = DateTime.fromFormat(from, "yyyy-MM-dd").toFormat(
-      "dd-MM-yyyy"
+      "dd-MM-yyyy",
     );
     const newCheckOut = DateTime.fromFormat(to, "yyyy-MM-dd").toFormat(
-      "dd-MM-yyyy"
+      "dd-MM-yyyy",
     );
     const newOccupancy = [adults, children.length, ...children].join("~");
 

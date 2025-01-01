@@ -1,5 +1,6 @@
 /*
-https://docs.nestjs.com/providers#services
+THIS IS NOT BEING USED CURRENTLY.  WHILE IT WAS DESIGNED TO AUTOMATE PRICELINE, THERE ARE BOT DETECTIONS THAT ARE TOO STRONG.
+THE PRICELINE SERVICE WILL BE USED INSTEAD AND JUST RETURNS A SEARCH URL WITH DATE AND OCCUPANCY.
 */
 
 import { Injectable } from "@nestjs/common";
@@ -15,7 +16,7 @@ import { PlatformServiceInterface } from "./platform.interface";
 import { HotelDetails, SearchProps, SearchResult } from "./types";
 
 @Injectable()
-export class BookingComService implements PlatformServiceInterface {
+export class PricelineAdvancedService implements PlatformServiceInterface {
   constructor(
     private eventsGateway: EventsGateway,
     private configService: ConfigService,
@@ -25,7 +26,7 @@ export class BookingComService implements PlatformServiceInterface {
     private readonly searchService: SearchService,
   ) {}
 
-  private readonly platform: string = "bookingcom";
+  private readonly platform: string = "priceline";
   async search(sessionId: string, data: SearchProps): Promise<void> {
     const { adults, children, hotel, dateRanges } = data;
     const dateRange = dateRanges[0];
@@ -37,34 +38,30 @@ export class BookingComService implements PlatformServiceInterface {
       await this.searchService.triggerProgressNotification(
         page,
         sessionId,
-        "Preparing Booking.com search.",
+        "Preparing Priceline search.",
         this.platform,
       );
-      await page.goto("https://www.booking.com/index.html", {
+      await page.goto("https://www.priceline.com/?tab=hotels", {
         waitUntil: "domcontentloaded",
       });
       await page.waitForTimeout(2000);
-      try {
-        if (
-          await page.waitForSelector(
-            "button[aria-label='Dismiss sign-in info.']",
-            { timeout: 5000 },
-          )
-        ) {
-          await page
-            .locator("button[aria-label='Dismiss sign-in info.']")
-            .click();
-        }
-      } catch (e) {
-        console.log(e);
-        console.log("No sign in info found. continuing...");
-      }
+
       await this.searchService.triggerProgressNotification(
         page,
         sessionId,
         "Searching for hotel.",
         this.platform,
       );
+
+      const button = await page.locator("div", {
+        hasText: "Press & Hold",
+      });
+
+      // Press and hold interaction
+      await button.hover(); // Ensure the button is hovered over
+      await page.mouse.down(); // Simulate pressing the mouse down
+      await page.waitForTimeout(5000); // Wait for 3 seconds (adjust as needed for the task)
+      await page.mouse.up(); // Simulate releasing the mouse
 
       await this.searchForHotel(page, hotel, sessionId);
       await page.waitForTimeout(1000);
@@ -75,18 +72,15 @@ export class BookingComService implements PlatformServiceInterface {
         this.platform,
       );
       await page.waitForTimeout(3000);
-      await Promise.all([
-        page.getByRole("button", { name: "Search" }).click(),
-        page.waitForEvent("domcontentloaded"),
-      ]);
+      const form = page.locator(`div#panel-hotels form:first-of-type`);
+      await form.locator(`button[type="submit"]`).click();
+      await page.waitForEvent("domcontentloaded");
       await page.waitForTimeout(3000);
-      const updatedUrl = this.updateBookingUrl(
-        page.url(),
-        dateRange.from,
-        dateRange.to,
+      await page.waitForTimeout(3000);
+      const updatedUrl = this.updateUrl(page.url(), dateRange, {
         adults,
         children,
-      );
+      });
       await this.searchService.triggerProgressNotification(
         page,
         sessionId,
@@ -104,16 +98,14 @@ export class BookingComService implements PlatformServiceInterface {
       );
 
       const results: SearchResult[] = await page.$$eval(
-        "div[data-testid='property-card'] a[data-testid='title-link']",
+        "div[data-testid='HTL_NEW_LISTING_CARD_RESP']",
         (links) =>
           (links as HTMLAnchorElement[]).map((link) => ({
-            link: link.href,
+            link: (link.querySelector("a:first-of-type") as HTMLAnchorElement)
+              ?.href,
             name:
-              (
-                link.querySelector(
-                  "div[data-testid='title']",
-                ) as HTMLParagraphElement
-              )?.innerText || "",
+              (link.querySelector("h3") as HTMLParagraphElement)?.innerText ||
+              "",
             price: "00.00",
             address:
               (
@@ -145,7 +137,8 @@ export class BookingComService implements PlatformServiceInterface {
         "Match found. Opening booking page.",
         this.platform,
       );
-      await Promise.all([page.waitForNavigation(), page.goto(match.link)]);
+      await page.goto(match.link, { waitUntil: "domcontentloaded" });
+      await page.waitForTimeout(3000);
       await this.searchService.triggerNotification(page, sessionId, "results", {
         platform: this.platform,
         step: "Results found.",
@@ -204,11 +197,13 @@ export class BookingComService implements PlatformServiceInterface {
 
   async selectHotelFromList(page: Page, hotel: HotelDetails): Promise<boolean> {
     // Wait for the hotel list to be loaded
-    await page.waitForSelector(`li[id^="autocomplete-result-0"]`);
+    await page.waitForSelector(
+      `div[id^="endLocation-typeahead-downshift-container-item-0"]`,
+    );
 
     // Extract hotel choices from the updated structure
     const hotelChoices = await page.$$eval(
-      `li[id^="autocomplete-result-"]`,
+      `li[id^="endLocation-typeahead-downshift-container-item-"]`,
       (options) =>
         Array.from(options)
           .map((option) => ({
@@ -236,8 +231,9 @@ export class BookingComService implements PlatformServiceInterface {
       }
       selectedHotel = result;
     }
-    await page.locator(`li[id="${selectedHotel.id}"]`).click();
-
+    await page.locator(`div[id="${selectedHotel.id}"]`).click();
+    await page.waitForTimeout(1000);
+    await page.locator(`div#panel-hotels`).click();
     return true;
   }
 
@@ -263,36 +259,65 @@ export class BookingComService implements PlatformServiceInterface {
   }
 
   async inputHotelNameInSearchField(page: Page, text: string) {
-    await page.locator(`input[data-destination='1']`).fill("");
-    await page.locator(`input[data-destination='1']`).pressSequentially(text, {
-      delay: 100,
-    });
+    await page
+      .locator(`input#endLocation-typeahead-downshift-container-input`)
+      .fill("");
+    await page
+      .locator(`input#endLocation-typeahead-downshift-container-input`)
+      .pressSequentially(text, {
+        delay: 100,
+      });
     await page.waitForTimeout(1000);
   }
 
-  updateBookingUrl(
-    baseUrl: string,
-    checkInDate: string, // Format: yyyy-MM-dd
-    checkOutDate: string, // Format: yyyy-MM-dd
-    adults: number,
-    children: number[], // Array of ages
+  updateUrl(
+    url: string,
+    newDates: { from: string; to: string }, // Dates in 'YYYY-MM-DD' format
+    occupancy: { adults: number; children?: number[] }, // Occupancy details
   ): string {
-    const urlObj = new URL(baseUrl);
+    const urlObj = new URL(url);
 
-    // Update dates
-    urlObj.searchParams.set("checkin", checkInDate);
-    urlObj.searchParams.set("checkout", checkOutDate);
+    // Update the check-in and check-out dates
+    const newFrom = newDates.from.replace(/-/g, ""); // Convert to 'YYYYMMDD'
+    const newTo = newDates.to.replace(/-/g, ""); // Convert to 'YYYYMMDD'
 
-    // Update occupancy
-    urlObj.searchParams.set("group_adults", adults.toString());
-    urlObj.searchParams.set("group_children", children.length.toString());
+    // Update path segments for dates
+    const pathSegments = urlObj.pathname.split("/");
+    const fromIndex = pathSegments.indexOf("from");
+    const toIndex = pathSegments.indexOf("to");
 
-    // Add children ages dynamically
-    // Clear existing 'age' params
-    urlObj.searchParams.delete("age");
-    children.forEach((age) => {
-      urlObj.searchParams.append("age", age.toString());
-    });
+    if (fromIndex !== -1 && toIndex !== -1) {
+      pathSegments[fromIndex + 1] = newFrom; // Update check-in date
+      pathSegments[toIndex + 1] = newTo; // Update check-out date
+    }
+
+    // Update adults in the path
+    const adultsIndex = pathSegments.indexOf("adults");
+    if (adultsIndex !== -1) {
+      pathSegments[adultsIndex + 1] = occupancy.adults.toString();
+    }
+
+    // Add children to the path if provided
+    const childrenAges =
+      occupancy.children && occupancy.children.length > 0
+        ? occupancy.children.join(",")
+        : null;
+
+    const childrenIndex = pathSegments.indexOf("children");
+    if (childrenAges) {
+      if (childrenIndex !== -1) {
+        pathSegments[childrenIndex + 1] = childrenAges;
+      } else {
+        // Append 'children/{ages}' to the path
+        pathSegments.push("children", childrenAges);
+      }
+    } else if (childrenIndex !== -1) {
+      // Remove the 'children' segment if no children are specified
+      pathSegments.splice(childrenIndex, 2);
+    }
+
+    // Update the pathname with modified segments
+    urlObj.pathname = pathSegments.join("/");
 
     return urlObj.toString();
   }

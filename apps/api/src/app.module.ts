@@ -17,6 +17,7 @@ import { BookingComService } from "./search/platforms/bookingcom.service";
 import { DuffelService } from "./search/platforms/duffel.service";
 import { ExpediaService } from "./search/platforms/expedia.service";
 import { ForaService } from "./search/platforms/fora.service";
+import { PricelineService } from "./search/platforms/priceline.service";
 import { TpiService } from "./search/platforms/tpi.service";
 import { TravelEdgeService } from "./search/platforms/traveledge.service";
 import { WebBedsService } from "./search/platforms/webbeds.service";
@@ -24,7 +25,7 @@ import { SearchController } from "./search/search.controller";
 import { SearchService } from "./search/search.service";
 import { SessionsController } from "./sessions/sessions.controller";
 import { SessionsService } from "./sessions/sessions/sessions.service";
-
+import { GoogleHotelsService } from "./search/platforms/googleHotels.service";
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -58,6 +59,8 @@ import { SessionsService } from "./sessions/sessions/sessions.service";
     BookingComService,
     TravelEdgeService,
     TpiService,
+    PricelineService,
+    GoogleHotelsService,
   ],
 })
 export class AppModule {}
