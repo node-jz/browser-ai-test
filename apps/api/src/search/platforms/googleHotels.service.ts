@@ -22,7 +22,7 @@ export class GoogleHotelsService implements PlatformServiceInterface {
     private sessionsService: SessionsService,
     private browserService: BrowserService,
     private readonly openaiService: OpenAiService,
-    private readonly searchService: SearchService,
+    private readonly searchService: SearchService
   ) {}
 
   private readonly platform: string = "googleHotels";
@@ -38,7 +38,7 @@ export class GoogleHotelsService implements PlatformServiceInterface {
         page,
         sessionId,
         "Preparing Google Hotels search.",
-        this.platform,
+        this.platform
       );
       const hotelURL = new URLSearchParams({
         q: hotel.displayName + ", " + hotel.formattedAddress,
@@ -47,28 +47,30 @@ export class GoogleHotelsService implements PlatformServiceInterface {
         `https://www.google.com/travel/search?${hotelURL.toString()}`,
         {
           waitUntil: "domcontentloaded",
-        },
+        }
       );
       await page.waitForTimeout(2000);
 
       await this.searchService.triggerProgressNotification(
         page,
         sessionId,
-        "Searching for hotel.",
-        this.platform,
+        "Setting Occupancy.",
+        this.platform
+      );
+      await this.setOccupancy(page, { adults, children });
+
+      await this.searchService.triggerProgressNotification(
+        page,
+        sessionId,
+        "Setting Dates.",
+        this.platform
       );
 
       await page.waitForTimeout(3000);
       // set dates and occupancy first
       await this.setDates(page, dateRange);
-      await this.setOccupancy(page, { adults, children });
+
       await page.waitForTimeout(3000);
-      await this.searchService.triggerProgressNotification(
-        page,
-        sessionId,
-        "Submitting search without dates and occupancy.",
-        this.platform,
-      );
 
       const match: SearchResult = {
         link: page.url(),
@@ -80,7 +82,7 @@ export class GoogleHotelsService implements PlatformServiceInterface {
         await this.searchService.triggerNoResultsNotification(
           page,
           sessionId,
-          this.platform,
+          this.platform
         );
         await this.browserService.closePageInContext(sessionId, page);
         return;
@@ -100,7 +102,7 @@ export class GoogleHotelsService implements PlatformServiceInterface {
         page,
         sessionId,
         "Error during search.",
-        this.platform,
+        this.platform
       );
       await this.browserService.closePageInContext(sessionId, page);
     }
@@ -142,14 +144,14 @@ export class GoogleHotelsService implements PlatformServiceInterface {
 
   async setOccupancy(
     page: Page,
-    occupancy: { adults: number; children?: number[] },
+    occupancy: { adults: number; children?: number[] }
   ) {
     const initialOccupancyField = page.locator(`div[data-adults]`).first();
     await initialOccupancyField.click();
     // Set adults count
     const occupancyField = page.locator(`div[data-adults]`).nth(1);
     const currentAdults: number = parseInt(
-      await occupancyField.getAttribute("data-adults"),
+      await occupancyField.getAttribute("data-adults")
     );
     const targetAdults = occupancy.adults;
     const adultsToAdd = targetAdults - currentAdults;
@@ -172,19 +174,22 @@ export class GoogleHotelsService implements PlatformServiceInterface {
     if (occupancy.children && occupancy.children.length > 0) {
       const childrenAttribute =
         await occupancyField.getAttribute("data-children");
-      const currentChildren: number = childrenAttribute
-        ? childrenAttribute.split(",").length
-        : 0;
+      const currentChildren: number =
+        childrenAttribute && childrenAttribute !== ""
+          ? childrenAttribute.split(",").length
+          : 0;
       const targetChildren = occupancy.children.length;
       const childrenToAdd = targetChildren - currentChildren;
 
       if (childrenToAdd > 0) {
-        // Click + button for children
-        for (let i = 0; i < childrenToAdd; i++) {
-          await page.locator('button[aria-label="Add child"]').first().click();
-          console.log("clicked Add child");
-          await page.waitForTimeout(500); // Wait for age selector to appear
-        }
+        const addChildButton = occupancyField
+          .locator('button[aria-label="Add child"]')
+          .first();
+        await addChildButton.click({
+          force: true,
+          delay: 200,
+          clickCount: childrenToAdd,
+        });
 
         // Set age for each child
         for (let i = 0; i < occupancy.children.length; i++) {
@@ -193,28 +198,28 @@ export class GoogleHotelsService implements PlatformServiceInterface {
             .nth(i)
             .locator('div[role="listbox"]');
           await ageSelector.click();
-          await page.waitForTimeout(200);
+          await page.waitForTimeout(2000);
 
           // Find and click the option with matching age
           const ageOption = ageSelector
             .locator(
-              `div[role="option"][data-value="${occupancy.children[i]}"]`,
+              `div[role="option"][data-value="${occupancy.children[i]}"]`
             )
             .first();
           await ageOption.click();
-          await page.waitForTimeout(200);
+          await page.waitForTimeout(2000);
         }
       }
     }
 
     await page.keyboard.press("Escape");
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(2000);
   }
 
   updateUrl(
     url: string,
     newDates: { from: string; to: string }, // Dates in 'YYYY-MM-DD' format
-    occupancy: { adults: number; children?: number[] }, // Occupancy details
+    occupancy: { adults: number; children?: number[] } // Occupancy details
   ): string {
     const urlObj = new URL(url);
 
