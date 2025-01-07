@@ -86,7 +86,6 @@ export class WebBedsService implements PlatformServiceInterface {
         this.platform
       );
       await page.waitForTimeout(2000);
-      await this.checkForAppCues(page);
       const resultsFound = await this.searchForHotel(page, hotel, sessionId);
       await page.waitForTimeout(2000);
       if (!resultsFound) {
@@ -153,12 +152,6 @@ export class WebBedsService implements PlatformServiceInterface {
     await this.browserService.closePageInContext(sessionId, page);
   }
 
-  async checkForAppCues(page: Page) {
-    if (await page.waitForSelector("appcues", { timeout: 1000 })) {
-      const appCues = await page.locator("appcues");
-      await appCues.locator("button[data-step='dismiss']").click();
-    }
-  }
   async handleMfa(page: Page, sessionId: string) {
     try {
       const mfaFormField = await page.locator("#mfacode");
@@ -196,7 +189,6 @@ export class WebBedsService implements PlatformServiceInterface {
       if (words.length <= 1) {
         return false;
       }
-      await this.checkForAppCues(page);
       // Retry search with the reduced term
       await this.inputHotelNameInSearchField(page, searchText);
 
