@@ -45,7 +45,7 @@ export class BedsOnlineService implements PlatformServiceInterface {
         waitUntil: "domcontentloaded",
       });
 
-      await page.waitForTimeout(5000);
+      await page.waitForTimeout(10000);
       if (await page.getByRole("link", { name: "Allow all" }).isVisible()) {
         await page.getByRole("link", { name: "Allow all" }).click();
       }
