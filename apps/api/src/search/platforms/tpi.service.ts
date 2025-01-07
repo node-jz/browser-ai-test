@@ -4,15 +4,15 @@ https://docs.nestjs.com/providers#services
 
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { DateTime } from "luxon";
+import { BrowserContext, Frame, Page } from "playwright";
 import { BrowserService } from "src/browser/browser/browser.service";
+import { OpenAiService } from "src/llm/openai.service";
 import { SessionsService } from "src/sessions/sessions/sessions.service";
 
 import { SearchService } from "../search.service";
 import { PlatformServiceInterface } from "./platform.interface";
 import { DateRange, HotelDetails, SearchProps, SearchResult } from "./types";
-import { DateTime } from "luxon";
-import { BrowserContext, Page } from "playwright";
-import { OpenAiService } from "src/llm/openai.service";
 
 @Injectable()
 export class TpiService implements PlatformServiceInterface {
@@ -21,11 +21,12 @@ export class TpiService implements PlatformServiceInterface {
     private readonly searchService: SearchService,
     private readonly sessionsService: SessionsService,
     private readonly browserService: BrowserService,
-    private readonly openaiService: OpenAiService,
+    private readonly openaiService: OpenAiService
   ) {}
 
   private readonly platform: string = "tpi";
 
+  private iframe: Frame | null = null;
   async handleLogin(page: Page, sessionId: string, context: BrowserContext) {
     await page.waitForTimeout(2000);
     await page.locator("input#user").click();
@@ -42,7 +43,7 @@ export class TpiService implements PlatformServiceInterface {
       page,
       sessionId,
       "Login successful.",
-      this.platform,
+      this.platform
     );
   }
 
@@ -58,7 +59,7 @@ export class TpiService implements PlatformServiceInterface {
       page,
       sessionId,
       "Navigating to Tpi.",
-      this.platform,
+      this.platform
     );
 
     try {
@@ -76,13 +77,32 @@ export class TpiService implements PlatformServiceInterface {
         .getByRole("button", { name: "I Understand and Agree" })
         .click();
       await page.waitForTimeout(2000);
-      const hotelButton = await page.locator("a#ui-id-2");
+
+      // Wait for the iframe to load
+      const iframeElement = await page.waitForSelector("iframe");
+
+      // Get the content frame
+      this.iframe = await iframeElement.contentFrame();
+
+      if (!this.iframe) {
+        console.error("Failed to locate the content frame of the iframe.");
+        await this.searchService.triggerErrorNotification(
+          page,
+          sessionId,
+          "Failed to locate the content frame of the iframe.",
+          this.platform
+        );
+        await this.browserService.closePageInContext(sessionId, page);
+        return;
+      }
+
+      const hotelButton = await this.iframe.locator("a#ui-id-2");
       await hotelButton.scrollIntoViewIfNeeded();
       await this.searchService.triggerProgressNotification(
         page,
         sessionId,
         "Scrolling to hotels tab.",
-        this.platform,
+        this.platform
       );
       await hotelButton.click();
 
@@ -93,47 +113,66 @@ export class TpiService implements PlatformServiceInterface {
         await this.searchService.triggerNoResultsNotification(
           page,
           sessionId,
-          this.platform,
+          this.platform
         );
-      }
-
-      const hotelFoundAndSelected = await this.selectHotelFromList(page, hotel);
-      if (!hotelFoundAndSelected) {
-        await this.searchService.triggerNoResultsNotification(
-          page,
-          sessionId,
-          this.platform,
-        );
-        await this.browserService.closePageInContext(sessionId, page);
-        return;
       }
 
       await this.searchService.triggerProgressNotification(
         page,
         sessionId,
-        "Selected best match from list. Searching for availability.",
-        this.platform,
+        "Selected best match from list. Setting dates and occupancy.",
+        this.platform
       );
 
+      await this.iframe
+        .locator("input#hotel-date-from")
+        .fill(
+          DateTime.fromFormat(dateRange.from, "yyyy-MM-dd").toFormat(
+            "MMMM-dd-yyyy"
+          )
+        );
+      await this.iframe
+        .locator("input#hotel-date-to")
+        .fill(
+          DateTime.fromFormat(dateRange.to, "yyyy-MM-dd").toFormat(
+            "MMMM-dd-yyyy"
+          )
+        );
+      await this.iframe.locator("span#hotel-adults-button").click();
+      await this.iframe
+        .locator(".ui-selectmenu-open")
+        .locator("li")
+        .nth(adults - 1)
+        .click();
+      await page.waitForTimeout(2000);
+      await this.iframe.locator("span#hotel-child-button").click();
+      await page.waitForTimeout(1000);
+      await this.iframe
+        .locator(".ui-selectmenu-open")
+        .locator("li")
+        .nth(children.length)
+        .click();
+
+      await this.iframe
+        .locator("#tabs-2 p[data-term='ADVANCED_OPTIONS']")
+        .click();
+      await this.iframe.locator("input#hotel-name").fill(hotel.displayName);
+      await this.iframe
+        .locator("input#hotel-address")
+        .fill(hotel.formattedAddress);
       await Promise.all([
         page.waitForNavigation(),
-        page.locator('button[data-qa="btn_search_stay_themepark"]').click(),
+        this.iframe.locator("#tabs-2 button[data-term='SEARCH']").click(),
       ]);
-
-      await this.handleResultsPage(
-        page,
-        hotel,
-        { adults: adults, children: children },
-        dateRange,
-        sessionId,
-      );
+      await page.waitForTimeout(2000);
+      await this.handleResultsPage(page, hotel, sessionId);
     } catch (e) {
       console.error(e);
       await this.searchService.triggerErrorNotification(
         page,
         sessionId,
         "Error during search.",
-        this.platform,
+        this.platform
       );
       await this.browserService.closePageInContext(sessionId, page);
     }
@@ -143,7 +182,7 @@ export class TpiService implements PlatformServiceInterface {
   async searchForHotel(
     page: Page,
     hotel: HotelDetails,
-    sessionId: string,
+    sessionId: string
   ): Promise<boolean> {
     let searchText = hotel.displayName;
     while (true) {
@@ -155,17 +194,17 @@ export class TpiService implements PlatformServiceInterface {
         page,
         sessionId,
         `Trying search for '${searchText}'.`,
-        this.platform,
+        this.platform
       );
       // Retry search with the reduced term
-      await this.performHotelNameSearch(page, searchText);
-      const selectedHotel = await this.selectHotelFromList(page, hotel);
+      await this.performHotelNameSearch(searchText);
+      const selectedHotel = await this.selectHotelFromList(hotel);
       if (selectedHotel) {
         return true;
       }
 
       // Check if "no results" message is present
-      const noResultsMessage = await this.checkForNoResultsMessage(page);
+      const noResultsMessage = await this.checkForNoResultsMessage();
 
       if (!noResultsMessage) {
         return true;
@@ -176,12 +215,14 @@ export class TpiService implements PlatformServiceInterface {
     }
   }
 
-  async selectHotelFromList(page: Page, hotel: HotelDetails): Promise<boolean> {
-    await page.waitForSelector("ul.ui-autocomplete li");
-    const hotelChoices = await page.$$eval("ul.ui-autocomplete li", (links) =>
-      Array.from(links).map((element) =>
-        element.textContent.trim().slice(0, -1),
-      ),
+  async selectHotelFromList(hotel: HotelDetails): Promise<boolean> {
+    await this.iframe.waitForSelector("ul.ui-autocomplete li");
+    const hotelChoices = await this.iframe.$$eval(
+      "ul.ui-autocomplete li",
+      (links) =>
+        Array.from(links).map((element) =>
+          element.textContent.trim().slice(0, -1)
+        )
     );
     let selectedHotelName = null;
     for (const choice of hotelChoices) {
@@ -198,13 +239,14 @@ export class TpiService implements PlatformServiceInterface {
       selectedHotelName = result;
     }
 
-    await page.getByText(selectedHotelName).first().click();
+    await this.iframe.getByText(selectedHotelName).first().click();
+    console.log("Selected hotel:", selectedHotelName);
     return true;
   }
 
   async useLLMToFindHotel(
     hotelChoices: string[],
-    hotel: HotelDetails,
+    hotel: HotelDetails
   ): Promise<string | null> {
     const systemPrompt = `I need you to search a list of hotels, and return the listed name that matches exactly or most closely to a hotel I am looking for [QUERY]. 
       [LIST]
@@ -221,98 +263,98 @@ export class TpiService implements PlatformServiceInterface {
     return JSON.parse(llmResult.content).name;
   }
 
-  async performHotelNameSearch(page: Page, text: string) {
-    await page.locator("input#hotel-city").fill("");
-    await page
+  async performHotelNameSearch(text: string) {
+    await this.iframe.locator("input#hotel-city").fill("");
+    await this.iframe
       .locator("input#hotel-city")
       .pressSequentially(text, { delay: 100 });
-    await page.waitForTimeout(1000);
+    await this.iframe.waitForTimeout(1000);
   }
 
-  async checkForNoResultsMessage(page: Page) {
-    const noResultsMessage = await page
+  async checkForNoResultsMessage() {
+    const noResultsMessage = await this.iframe
       .locator("ul.ui-autocomplete")
       .isHidden();
     return noResultsMessage;
   }
 
   /** RESULTS PAGE  */
-  async handleResultsPage(
-    page: Page,
-    hotel: HotelDetails,
-    occupancy: { adults: number; children: number[] },
-    dateRange: DateRange,
-    sessionId: string,
-  ) {
+  async handleResultsPage(page: Page, hotel: HotelDetails, sessionId: string) {
+    await page.waitForSelector(".ui.grid");
+
+    if (await page.locator(".placeholder span").isVisible()) {
+      this.searchService.triggerNoResultsNotification(
+        page,
+        sessionId,
+        this.platform
+      );
+      await this.browserService.closePageInContext(sessionId, page);
+      return;
+    }
+
     await this.searchService.triggerProgressNotification(
       page,
       sessionId,
-      "Initial results loaded without date and occupancy. Changing URL.",
-      this.platform,
+      "Initial results loaded with default sort. Changing Sort to distance.",
+      this.platform
     );
-    await page.goto(this.updateUrl(page.url(), dateRange, occupancy), {
-      waitUntil: "domcontentloaded",
-    });
+
+    await page.locator("select#SortDropDown").selectOption("Distance");
     await page.waitForTimeout(3000);
 
-    await page.waitForSelector("clientb2b-front-feature-results-list");
-
     await this.searchService.triggerProgressNotification(
       page,
       sessionId,
-      "New results loaded with date and occupancy.",
-      this.platform,
+      "Results loaded with distance sort.",
+      this.platform
     );
 
-    (
-      await page.waitForSelector(".feature-card-layout__card__body")
-    ).isVisible();
+    (await page.waitForSelector("[id^='hotelItemDisplay_']")).isVisible();
 
     const results: SearchResult[] = await page.$$eval(
-      ".feature-card-layout__card__body", // Select the main container for each hotel card
+      "[id^='hotelItemDisplay_']", // Select the main container for each hotel card
       (cards) =>
         (cards as HTMLElement[]).map((card) => ({
-          link:
-            (
-              card.querySelector(
-                "a.card-content-header__name__link",
-              ) as HTMLAnchorElement
-            )?.href || "",
+          link: card.id,
           name:
             (
               card.querySelector(
-                ".card-content-header__name__title",
-              ) as HTMLSpanElement
+                ".map-location:first-of-type strong:first-of-type"
+              ) as HTMLElement
             )?.innerText.trim() || "",
           price:
             (
               card.querySelector(
-                ".tooltip-markup-commission__price__container__integer",
+                ".value:first-of-type span:first-of-type"
               ) as HTMLElement
             )?.innerText || "00.00",
           address:
             (
               card.querySelector(
-                ".card-content-header__location__address__title",
+                ".map-location:last-of-type span:first-of-type"
               ) as HTMLElement
             )?.innerText.trim() || "",
-        })),
+        }))
     );
 
     const match = await this.searchService.findMatchWithLLM(
       results,
       hotel.displayName,
-      hotel.formattedAddress,
+      hotel.formattedAddress
     );
     if (!match) {
       await this.searchService.triggerNoResultsNotification(
         page,
         sessionId,
-        this.platform,
+        this.platform
       );
       await this.browserService.closePageInContext(sessionId, page);
       return;
     }
+
+    await page.locator(`#${match.link} button:first-of-type`).click();
+
+    await page.waitForTimeout(8000);
 
     // Ethan wants to save the url of the search page not the URL of the fact sheet page
     await this.searchService.triggerNotification(page, sessionId, "results", {
@@ -326,13 +368,13 @@ export class TpiService implements PlatformServiceInterface {
   updateUrl(
     url: string,
     { from, to }: DateRange,
-    { adults, children }: { adults: number; children: number[] },
+    { adults, children }: { adults: number; children: number[] }
   ): string {
     const newCheckIn = DateTime.fromFormat(from, "yyyy-MM-dd").toFormat(
-      "dd-MM-yyyy",
+      "dd-MM-yyyy"
     );
     const newCheckOut = DateTime.fromFormat(to, "yyyy-MM-dd").toFormat(
-      "dd-MM-yyyy",
+      "dd-MM-yyyy"
     );
     const newOccupancy = [adults, children.length, ...children].join("~");
 
