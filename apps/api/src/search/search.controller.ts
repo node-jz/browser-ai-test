@@ -31,7 +31,7 @@ export class SearchController {
     private readonly travelEdgeService: TravelEdgeService,
     private readonly pricelineService: PricelineService,
     private readonly googleHotelsService: GoogleHotelsService,
-    private readonly eventsGateway: EventsGateway
+    private readonly eventsGateway: EventsGateway,
   ) {
     this.serviceMap = {
       duffel: this.duffelService,

@@ -8,7 +8,7 @@ import { v4 as uuidv4 } from "uuid";
 export class SessionsService {
   constructor(
     @Inject(forwardRef(() => BrowserService))
-    private readonly browserService: BrowserService
+    private readonly browserService: BrowserService,
   ) {}
 
   async createSession(): Promise<string> {
@@ -61,7 +61,7 @@ export class SessionsService {
 
       for (const file of cookieFiles) {
         const cookies = JSON.parse(
-          fs.readFileSync(`./cookies/${file}`, "utf8")
+          fs.readFileSync(`./cookies/${file}`, "utf8"),
         );
         allCookies.push(...cookies);
       }

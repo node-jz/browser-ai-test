@@ -23,7 +23,7 @@ export class BedsOnlineService implements PlatformServiceInterface {
     private sessionsService: SessionsService,
     private browserService: BrowserService,
     private readonly openaiService: OpenAiService,
-    private readonly searchService: SearchService
+    private readonly searchService: SearchService,
   ) {}
 
   private readonly platform: string = "bedsonline";
@@ -39,7 +39,7 @@ export class BedsOnlineService implements PlatformServiceInterface {
         page,
         sessionId,
         `Navigating to ${this.platform}.`,
-        this.platform
+        this.platform,
       );
       await page.goto("https://app.bedsonline.com/main", {
         waitUntil: "domcontentloaded",
@@ -55,7 +55,7 @@ export class BedsOnlineService implements PlatformServiceInterface {
           page,
           sessionId,
           "Login required.",
-          this.platform
+          this.platform,
         );
 
         await page.waitForTimeout(2000);
@@ -64,7 +64,7 @@ export class BedsOnlineService implements PlatformServiceInterface {
           .locator('[data-qa="username"]')
           .pressSequentially(
             this.configService.get<string>("BEDSONLINE_USERNAME"),
-            { delay: 100 }
+            { delay: 100 },
           );
 
         await page.waitForTimeout(2000);
@@ -72,7 +72,7 @@ export class BedsOnlineService implements PlatformServiceInterface {
           .locator('[data-qa="password"]')
           .pressSequentially(
             this.configService.get<string>("BEDSONLINE_PASSWORD"),
-            { delay: 100 }
+            { delay: 100 },
           );
 
         await page.waitForTimeout(2000);
@@ -92,7 +92,7 @@ export class BedsOnlineService implements PlatformServiceInterface {
         page,
         sessionId,
         "Search form loaded.",
-        this.platform
+        this.platform,
       );
 
       await this.checkForAppCues(page, context);
@@ -108,7 +108,7 @@ export class BedsOnlineService implements PlatformServiceInterface {
         await this.searchService.triggerNoResultsNotification(
           page,
           sessionId,
-          this.platform
+          this.platform,
         );
       }
 
@@ -117,7 +117,7 @@ export class BedsOnlineService implements PlatformServiceInterface {
         await this.searchService.triggerNoResultsNotification(
           page,
           sessionId,
-          this.platform
+          this.platform,
         );
         await this.browserService.closePageInContext(sessionId, page);
         return;
@@ -127,7 +127,7 @@ export class BedsOnlineService implements PlatformServiceInterface {
         page,
         sessionId,
         "Selected best match from list. Searching for availability.",
-        this.platform
+        this.platform,
       );
 
       await Promise.all([
@@ -140,7 +140,7 @@ export class BedsOnlineService implements PlatformServiceInterface {
         hotel,
         { adults: adults, children: children },
         dateRange,
-        sessionId
+        sessionId,
       );
     } catch (e) {
       console.error(e);
@@ -148,7 +148,7 @@ export class BedsOnlineService implements PlatformServiceInterface {
         page,
         sessionId,
         "Error during search.",
-        this.platform
+        this.platform,
       );
       await this.browserService.closePageInContext(sessionId, page);
     }
@@ -172,7 +172,7 @@ export class BedsOnlineService implements PlatformServiceInterface {
   async searchForHotel(
     page: Page,
     hotel: HotelDetails,
-    sessionId: string
+    sessionId: string,
   ): Promise<boolean> {
     let searchText = hotel.displayName;
     while (true) {
@@ -188,7 +188,7 @@ export class BedsOnlineService implements PlatformServiceInterface {
         page,
         sessionId,
         `Trying search for '${searchText}'.`,
-        this.platform
+        this.platform,
       );
       // Check if "no results" message is present
       const noResultsMessage = await this.checkForNoResultsMessage(page);
@@ -208,8 +208,8 @@ export class BedsOnlineService implements PlatformServiceInterface {
       ".fts-dropdown__fts__description__title",
       (links) =>
         Array.from(links).map((element) =>
-          element.textContent.trim().slice(0, -1)
-        )
+          element.textContent.trim().slice(0, -1),
+        ),
     );
     let selectedHotelName = null;
     for (const choice of hotelChoices) {
@@ -232,7 +232,7 @@ export class BedsOnlineService implements PlatformServiceInterface {
 
   async useLLMToFindHotel(
     hotelChoices: string[],
-    hotel: HotelDetails
+    hotel: HotelDetails,
   ): Promise<string | null> {
     const systemPrompt = `I need you to search a list of hotels, and return the listed name that matches exactly or most closely to a hotel I am looking for [QUERY]. 
       [LIST]
@@ -270,13 +270,13 @@ export class BedsOnlineService implements PlatformServiceInterface {
     hotel: HotelDetails,
     occupancy: { adults: number; children: number[] },
     dateRange: DateRange,
-    sessionId: string
+    sessionId: string,
   ) {
     await this.searchService.triggerProgressNotification(
       page,
       sessionId,
       "Initial results loaded without date and occupancy. Changing URL.",
-      this.platform
+      this.platform,
     );
     await page.goto(this.updateUrl(page.url(), dateRange, occupancy), {
       waitUntil: "domcontentloaded",
@@ -289,7 +289,7 @@ export class BedsOnlineService implements PlatformServiceInterface {
       page,
       sessionId,
       "New results loaded with date and occupancy.",
-      this.platform
+      this.platform,
     );
 
     (
@@ -303,40 +303,40 @@ export class BedsOnlineService implements PlatformServiceInterface {
           link:
             (
               card.querySelector(
-                "a.card-content-header__name__link"
+                "a.card-content-header__name__link",
               ) as HTMLAnchorElement
             )?.href || "",
           name:
             (
               card.querySelector(
-                ".card-content-header__name__title"
+                ".card-content-header__name__title",
               ) as HTMLSpanElement
             )?.innerText.trim() || "",
           price:
             (
               card.querySelector(
-                ".tooltip-markup-commission__price__container__integer"
+                ".tooltip-markup-commission__price__container__integer",
               ) as HTMLElement
             )?.innerText || "00.00",
           address:
             (
               card.querySelector(
-                ".card-content-header__location__address__title"
+                ".card-content-header__location__address__title",
               ) as HTMLElement
             )?.innerText.trim() || "",
-        }))
+        })),
     );
 
     const match = await this.searchService.findMatchWithLLM(
       results,
       hotel.displayName,
-      hotel.formattedAddress
+      hotel.formattedAddress,
     );
     if (!match) {
       await this.searchService.triggerNoResultsNotification(
         page,
         sessionId,
-        this.platform
+        this.platform,
       );
       await this.browserService.closePageInContext(sessionId, page);
       return;
@@ -354,13 +354,13 @@ export class BedsOnlineService implements PlatformServiceInterface {
   updateUrl(
     url: string,
     { from, to }: DateRange,
-    { adults, children }: { adults: number; children: number[] }
+    { adults, children }: { adults: number; children: number[] },
   ): string {
     const newCheckIn = DateTime.fromFormat(from, "yyyy-MM-dd").toFormat(
-      "dd-MM-yyyy"
+      "dd-MM-yyyy",
     );
     const newCheckOut = DateTime.fromFormat(to, "yyyy-MM-dd").toFormat(
-      "dd-MM-yyyy"
+      "dd-MM-yyyy",
     );
     const newOccupancy = [adults, children.length, ...children].join("~");
 

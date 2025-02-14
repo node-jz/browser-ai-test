@@ -24,7 +24,7 @@ export class PageService {
   constructor(
     private readonly browserService: BrowserService,
     private readonly scrapeService: ScrapeService,
-    private readonly eventsGateway: EventsGateway
+    private readonly eventsGateway: EventsGateway,
   ) {}
 
   private async getPage(sessionId: string): Promise<Page> {
@@ -52,7 +52,7 @@ export class PageService {
   }
 
   async pageToMarkdown(
-    sessionId: string
+    sessionId: string,
   ): Promise<{ text: string; links: { url: string; text: string }[] }> {
     const page = await this.getPage(sessionId);
     return this.scrapeService.scrapePage(page);
@@ -72,10 +72,10 @@ export class PageService {
               type: element.type,
               label: element.labels ? element.labels[0]?.innerText : null,
               placeholder: element.placeholder,
-            })
+            }),
           ),
         };
-      })
+      }),
     );
     return forms;
   }
@@ -83,7 +83,7 @@ export class PageService {
   async fillFormFields(
     sessionId: string,
     formSelector: string,
-    fields: { [key: string]: string }
+    fields: { [key: string]: string },
   ): Promise<void> {
     const page = await this.getPage(sessionId);
     for (const [name, value] of Object.entries(fields)) {
@@ -107,7 +107,7 @@ export class PageService {
   async selectOption(
     sessionId: string,
     selector: string,
-    value: string
+    value: string,
   ): Promise<void> {
     const page = await this.getPage(sessionId);
     await page.selectOption(selector, value);

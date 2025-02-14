@@ -14,7 +14,7 @@ import { SessionsService } from "./sessions/sessions.service";
 export class BrowserService implements OnModuleInit, OnModuleDestroy {
   constructor(
     @Inject(forwardRef(() => SessionsService))
-    private readonly sessionsService: SessionsService
+    private readonly sessionsService: SessionsService,
   ) {}
 
   private readonly logger = new Logger(BrowserService.name);

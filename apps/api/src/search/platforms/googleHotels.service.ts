@@ -22,7 +22,7 @@ export class GoogleHotelsService implements PlatformServiceInterface {
     private sessionsService: SessionsService,
     private browserService: BrowserService,
     private readonly openaiService: OpenAiService,
-    private readonly searchService: SearchService
+    private readonly searchService: SearchService,
   ) {}
 
   private readonly platform: string = "googleHotels";
@@ -38,7 +38,7 @@ export class GoogleHotelsService implements PlatformServiceInterface {
         page,
         sessionId,
         "Preparing Google Hotels search.",
-        this.platform
+        this.platform,
       );
       const hotelURL = new URLSearchParams({
         q: hotel.displayName + ", " + hotel.formattedAddress,
@@ -47,7 +47,7 @@ export class GoogleHotelsService implements PlatformServiceInterface {
         `https://www.google.com/travel/search?${hotelURL.toString()}`,
         {
           waitUntil: "domcontentloaded",
-        }
+        },
       );
       await page.waitForTimeout(2000);
 
@@ -55,7 +55,7 @@ export class GoogleHotelsService implements PlatformServiceInterface {
         page,
         sessionId,
         "Setting Occupancy.",
-        this.platform
+        this.platform,
       );
       await this.setOccupancy(page, { adults, children });
 
@@ -63,7 +63,7 @@ export class GoogleHotelsService implements PlatformServiceInterface {
         page,
         sessionId,
         "Setting Dates.",
-        this.platform
+        this.platform,
       );
 
       await page.waitForTimeout(3000);
@@ -82,7 +82,7 @@ export class GoogleHotelsService implements PlatformServiceInterface {
         await this.searchService.triggerNoResultsNotification(
           page,
           sessionId,
-          this.platform
+          this.platform,
         );
         await this.browserService.closePageInContext(sessionId, page);
         return;
@@ -102,7 +102,7 @@ export class GoogleHotelsService implements PlatformServiceInterface {
         page,
         sessionId,
         "Error during search.",
-        this.platform
+        this.platform,
       );
       await this.browserService.closePageInContext(sessionId, page);
     }
@@ -144,14 +144,14 @@ export class GoogleHotelsService implements PlatformServiceInterface {
 
   async setOccupancy(
     page: Page,
-    occupancy: { adults: number; children?: number[] }
+    occupancy: { adults: number; children?: number[] },
   ) {
     const initialOccupancyField = page.locator(`div[data-adults]`).first();
     await initialOccupancyField.click();
     // Set adults count
     const occupancyField = page.locator(`div[data-adults]`).nth(1);
     const currentAdults: number = parseInt(
-      await occupancyField.getAttribute("data-adults")
+      await occupancyField.getAttribute("data-adults"),
     );
     const targetAdults = occupancy.adults;
     const adultsToAdd = targetAdults - currentAdults;
@@ -203,7 +203,7 @@ export class GoogleHotelsService implements PlatformServiceInterface {
           // Find and click the option with matching age
           const ageOption = ageSelector
             .locator(
-              `div[role="option"][data-value="${occupancy.children[i]}"]`
+              `div[role="option"][data-value="${occupancy.children[i]}"]`,
             )
             .first();
           await ageOption.click();
@@ -219,7 +219,7 @@ export class GoogleHotelsService implements PlatformServiceInterface {
   updateUrl(
     url: string,
     newDates: { from: string; to: string }, // Dates in 'YYYY-MM-DD' format
-    occupancy: { adults: number; children?: number[] } // Occupancy details
+    occupancy: { adults: number; children?: number[] }, // Occupancy details
   ): string {
     const urlObj = new URL(url);
 
