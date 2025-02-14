@@ -1,4 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
+
 import { BrowserService } from "./browser.service";
 
 describe("BrowserService", () => {

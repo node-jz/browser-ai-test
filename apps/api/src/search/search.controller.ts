@@ -1,17 +1,17 @@
 import { Body, Controller, Post } from "@nestjs/common";
+import { SessionsService } from "src/browser/sessions/sessions.service";
 import { EventsGateway } from "src/events/events.gateway";
 import { DuffelService } from "src/search/platforms/duffel.service";
-import { SessionsService } from "src/sessions/sessions/sessions.service";
 
 import { BedsOnlineService } from "./platforms/bedsonline.service";
 import { BookingComService } from "./platforms/bookingcom.service";
 import { ExpediaService } from "./platforms/expedia.service";
 import { ForaService } from "./platforms/fora.service";
+import { GoogleHotelsService } from "./platforms/googleHotels.service";
 import { PlatformServiceInterface } from "./platforms/platform.interface";
 import { PricelineService } from "./platforms/priceline.service";
 import { TpiService } from "./platforms/tpi.service";
 import { TravelEdgeService } from "./platforms/traveledge.service";
-import { GoogleHotelsService } from "./platforms/googleHotels.service";
 import { SearchProps } from "./platforms/types";
 import { WebBedsService } from "./platforms/webbeds.service";
 
@@ -31,7 +31,7 @@ export class SearchController {
     private readonly travelEdgeService: TravelEdgeService,
     private readonly pricelineService: PricelineService,
     private readonly googleHotelsService: GoogleHotelsService,
-    private readonly eventsGateway: EventsGateway,
+    private readonly eventsGateway: EventsGateway
   ) {
     this.serviceMap = {
       duffel: this.duffelService,

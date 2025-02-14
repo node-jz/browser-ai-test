@@ -5,10 +5,10 @@ https://docs.nestjs.com/providers#services
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Page } from "playwright";
-import { BrowserService } from "src/browser/browser/browser.service";
+import { BrowserService } from "src/browser/browser.service";
+import { SessionsService } from "src/browser/sessions/sessions.service";
 import { EventsGateway } from "src/events/events.gateway";
 import { OpenAiService } from "src/llm/openai.service";
-import { SessionsService } from "src/sessions/sessions/sessions.service";
 
 import { SearchService } from "../search.service";
 import { PlatformServiceInterface } from "./platform.interface";
@@ -24,7 +24,7 @@ export class ForaService implements PlatformServiceInterface {
     private sessionsService: SessionsService,
     private browserService: BrowserService,
     private readonly openaiService: OpenAiService,
-    private readonly searchService: SearchService,
+    private readonly searchService: SearchService
   ) {}
 
   async search(sessionId: string, data: SearchProps): Promise<void> {
@@ -39,13 +39,13 @@ export class ForaService implements PlatformServiceInterface {
         page,
         sessionId,
         `Navigating to ${this.platform}.`,
-        this.platform,
+        this.platform
       );
 
       const searchUrl = this.buildSearchUrl(
         hotel.displayName,
         adults,
-        dateRange,
+        dateRange
       );
       await page.goto(searchUrl, { waitUntil: "domcontentloaded" });
       await page.waitForTimeout(3000);
@@ -60,7 +60,7 @@ export class ForaService implements PlatformServiceInterface {
         await this.searchService.triggerNoResultsNotification(
           page,
           sessionId,
-          this.platform,
+          this.platform
         );
         await this.browserService.closePageInContext(sessionId, page);
         return;
@@ -73,7 +73,7 @@ export class ForaService implements PlatformServiceInterface {
         page,
         sessionId,
         "Error during search.",
-        this.platform,
+        this.platform
       );
     } finally {
       await this.browserService.closePageInContext(sessionId, page);
@@ -83,11 +83,11 @@ export class ForaService implements PlatformServiceInterface {
   private buildSearchUrl(
     hotelName: string,
     adults: number,
-    dateRange: DateRange,
+    dateRange: DateRange
   ): string {
     const baseURL = "https://advisor.fora.travel/partners/hotels";
     return `${baseURL}?view_mode=list&supplierType=hotels&currency=USD&q=${encodeURIComponent(
-      hotelName,
+      hotelName
     )}&travelers=${adults}&dates=${dateRange.from}-${dateRange.to}&rooms=1`;
   }
 
@@ -96,7 +96,7 @@ export class ForaService implements PlatformServiceInterface {
       page,
       sessionId,
       "Login required.",
-      this.platform,
+      this.platform
     );
 
     await page
@@ -114,18 +114,18 @@ export class ForaService implements PlatformServiceInterface {
 
   private async handleExistingLogin(
     page: Page,
-    sessionId: string,
+    sessionId: string
   ): Promise<boolean> {
     try {
       await page.waitForSelector(
         'h1#headingText:has-text("Choose an account")',
-        { timeout: 5000 },
+        { timeout: 5000 }
       );
       await this.searchService.triggerProgressNotification(
         page,
         sessionId,
         "Existing login detected.",
-        this.platform,
+        this.platform
       );
       await page.waitForTimeout(2000);
       await page
@@ -155,10 +155,10 @@ export class ForaService implements PlatformServiceInterface {
     try {
       await page.waitForSelector(
         'h1#headingText:has-text("Verify it\'s you")',
-        { timeout: 20000 },
+        { timeout: 20000 }
       );
       await page.click(
-        'div[role="link"][data-challengetype="9"][data-sendmethod="SMS"]',
+        'div[role="link"][data-challengetype="9"][data-sendmethod="SMS"]'
       );
 
       await this.searchService.triggerNotification(
@@ -169,7 +169,7 @@ export class ForaService implements PlatformServiceInterface {
           platform: this.platform,
           step: "MFA code required.",
           url: page.url(),
-        },
+        }
       );
 
       const mfaCode = await this.eventsGateway.waitForMfaCode(sessionId);
@@ -180,14 +180,14 @@ export class ForaService implements PlatformServiceInterface {
         page,
         sessionId,
         "2FA code submitted.",
-        this.platform,
+        this.platform
       );
     } catch {
       await this.searchService.triggerProgressNotification(
         page,
         sessionId,
         "No 2FA required. Continuing.",
-        this.platform,
+        this.platform
       );
     }
   }
@@ -195,13 +195,13 @@ export class ForaService implements PlatformServiceInterface {
   private async handleSearchResults(
     page: Page,
     sessionId: string,
-    hotel: HotelDetails,
+    hotel: HotelDetails
   ): Promise<void> {
     await this.searchService.triggerProgressNotification(
       page,
       sessionId,
       "Search results loaded.",
-      this.platform,
+      this.platform
     );
 
     await page.waitForTimeout(4000);
@@ -210,14 +210,14 @@ export class ForaService implements PlatformServiceInterface {
     const match = await this.searchService.findMatchWithLLM(
       results,
       hotel.displayName,
-      hotel.formattedAddress,
+      hotel.formattedAddress
     );
 
     if (!match) {
       await this.searchService.triggerNoResultsNotification(
         page,
         sessionId,
-        this.platform,
+        this.platform
       );
       return;
     }
@@ -226,7 +226,7 @@ export class ForaService implements PlatformServiceInterface {
       page,
       sessionId,
       "Match found. Opening booking page.",
-      this.platform,
+      this.platform
     );
 
     await page.goto(match.link, { waitUntil: "domcontentloaded" });
@@ -242,7 +242,7 @@ export class ForaService implements PlatformServiceInterface {
     return page.$$eval('ul a[href^="/partners/hotels/"]', (cards) =>
       (cards as HTMLAnchorElement[]).map((card) => {
         const container = card.querySelector(
-          "div.flex.flex-col",
+          "div.flex.flex-col"
         ) as HTMLElement;
         if (!container) {
           return { link: card.href || "", name: "", price: "", address: "" };
@@ -262,7 +262,7 @@ export class ForaService implements PlatformServiceInterface {
               ?.querySelector(".text-small.text-secondaryDark span")
               ?.textContent?.trim() || "",
         };
-      }),
+      })
     );
   }
 

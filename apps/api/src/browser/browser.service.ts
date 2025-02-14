@@ -7,13 +7,14 @@ import {
   OnModuleInit,
 } from "@nestjs/common";
 import { Browser, BrowserContext, chromium, Page } from "playwright";
-import { SessionsService } from "src/sessions/sessions/sessions.service";
+
+import { SessionsService } from "./sessions/sessions.service";
 
 @Injectable()
 export class BrowserService implements OnModuleInit, OnModuleDestroy {
   constructor(
     @Inject(forwardRef(() => SessionsService))
-    private readonly sessionsService: SessionsService,
+    private readonly sessionsService: SessionsService
   ) {}
 
   private readonly logger = new Logger(BrowserService.name);

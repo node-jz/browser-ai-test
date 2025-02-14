@@ -4,10 +4,10 @@ https://docs.nestjs.com/providers#services
 
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { BrowserService } from "src/browser/browser/browser.service";
+import { BrowserService } from "src/browser/browser.service";
+import { SessionsService } from "src/browser/sessions/sessions.service";
 import { EventsGateway } from "src/events/events.gateway";
 import { OpenAiService } from "src/llm/openai.service";
-import { SessionsService } from "src/sessions/sessions/sessions.service";
 
 import { SearchService } from "../search.service";
 import { PlatformServiceInterface } from "./platform.interface";
@@ -21,7 +21,7 @@ export class PricelineService implements PlatformServiceInterface {
     private sessionsService: SessionsService,
     private browserService: BrowserService,
     private readonly openaiService: OpenAiService,
-    private readonly searchService: SearchService,
+    private readonly searchService: SearchService
   ) {}
 
   private readonly platform: string = "priceline";
@@ -43,7 +43,7 @@ export class PricelineService implements PlatformServiceInterface {
         page,
         sessionId,
         "Preparing Priceline search.",
-        this.platform,
+        this.platform
       );
       await this.searchService.triggerNotification(page, sessionId, "results", {
         platform: this.platform,
@@ -65,7 +65,7 @@ export class PricelineService implements PlatformServiceInterface {
         page,
         sessionId,
         "Error during search.",
-        this.platform,
+        this.platform
       );
       await this.browserService.closePageInContext(sessionId, page);
     }
@@ -75,7 +75,7 @@ export class PricelineService implements PlatformServiceInterface {
   updateUrl(
     url: string,
     newDates: { from: string; to: string }, // Dates in 'YYYY-MM-DD' format
-    occupancy: { adults: number; children?: number[] }, // Occupancy details
+    occupancy: { adults: number; children?: number[] } // Occupancy details
   ): string {
     const urlObj = new URL(url);
 

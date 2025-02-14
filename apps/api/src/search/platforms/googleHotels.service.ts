@@ -5,10 +5,10 @@ https://docs.nestjs.com/providers#services
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Page } from "playwright";
-import { BrowserService } from "src/browser/browser/browser.service";
+import { BrowserService } from "src/browser/browser.service";
+import { SessionsService } from "src/browser/sessions/sessions.service";
 import { EventsGateway } from "src/events/events.gateway";
 import { OpenAiService } from "src/llm/openai.service";
-import { SessionsService } from "src/sessions/sessions/sessions.service";
 
 import { SearchService } from "../search.service";
 import { PlatformServiceInterface } from "./platform.interface";

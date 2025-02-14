@@ -6,10 +6,10 @@ THE PRICELINE SERVICE WILL BE USED INSTEAD AND JUST RETURNS A SEARCH URL WITH DA
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Page } from "playwright";
-import { BrowserService } from "src/browser/browser/browser.service";
+import { BrowserService } from "src/browser/browser.service";
+import { SessionsService } from "src/browser/sessions/sessions.service";
 import { EventsGateway } from "src/events/events.gateway";
 import { OpenAiService } from "src/llm/openai.service";
-import { SessionsService } from "src/sessions/sessions/sessions.service";
 
 import { SearchService } from "../search.service";
 import { PlatformServiceInterface } from "./platform.interface";
@@ -23,7 +23,7 @@ export class PricelineAdvancedService implements PlatformServiceInterface {
     private sessionsService: SessionsService,
     private browserService: BrowserService,
     private readonly openaiService: OpenAiService,
-    private readonly searchService: SearchService,
+    private readonly searchService: SearchService
   ) {}
 
   private readonly platform: string = "priceline";
@@ -39,7 +39,7 @@ export class PricelineAdvancedService implements PlatformServiceInterface {
         page,
         sessionId,
         "Preparing Priceline search.",
-        this.platform,
+        this.platform
       );
       await page.goto("https://www.priceline.com/?tab=hotels", {
         waitUntil: "domcontentloaded",
@@ -50,7 +50,7 @@ export class PricelineAdvancedService implements PlatformServiceInterface {
         page,
         sessionId,
         "Searching for hotel.",
-        this.platform,
+        this.platform
       );
 
       const button = await page.locator("div", {
@@ -69,7 +69,7 @@ export class PricelineAdvancedService implements PlatformServiceInterface {
         page,
         sessionId,
         "Submitting search without dates and occupancy.",
-        this.platform,
+        this.platform
       );
       await page.waitForTimeout(3000);
       const form = page.locator(`div#panel-hotels form:first-of-type`);
@@ -85,7 +85,7 @@ export class PricelineAdvancedService implements PlatformServiceInterface {
         page,
         sessionId,
         "Updating search with dates and occupancy.",
-        this.platform,
+        this.platform
       );
 
       await page.goto(updatedUrl, { waitUntil: "domcontentloaded" });
@@ -94,7 +94,7 @@ export class PricelineAdvancedService implements PlatformServiceInterface {
         page,
         sessionId,
         "Results page loaded.",
-        this.platform,
+        this.platform
       );
 
       const results: SearchResult[] = await page.$$eval(
@@ -110,22 +110,22 @@ export class PricelineAdvancedService implements PlatformServiceInterface {
             address:
               (
                 link.querySelector(
-                  "span[data-testid='address']",
+                  "span[data-testid='address']"
                 ) as HTMLParagraphElement
               )?.innerText || "",
-          })),
+          }))
       );
 
       const match = await this.searchService.findMatchWithLLM(
         results,
         hotel.displayName,
-        hotel.formattedAddress,
+        hotel.formattedAddress
       );
       if (!match) {
         await this.searchService.triggerNoResultsNotification(
           page,
           sessionId,
-          this.platform,
+          this.platform
         );
         await this.browserService.closePageInContext(sessionId, page);
         return;
@@ -135,7 +135,7 @@ export class PricelineAdvancedService implements PlatformServiceInterface {
         page,
         sessionId,
         "Match found. Opening booking page.",
-        this.platform,
+        this.platform
       );
       await page.goto(match.link, { waitUntil: "domcontentloaded" });
       await page.waitForTimeout(3000);
@@ -153,7 +153,7 @@ export class PricelineAdvancedService implements PlatformServiceInterface {
         page,
         sessionId,
         "Error during search.",
-        this.platform,
+        this.platform
       );
       await this.browserService.closePageInContext(sessionId, page);
     }
@@ -163,7 +163,7 @@ export class PricelineAdvancedService implements PlatformServiceInterface {
   async searchForHotel(
     page: Page,
     hotel: HotelDetails,
-    sessionId: string,
+    sessionId: string
   ): Promise<boolean> {
     let searchText = hotel.displayName;
     while (true) {
@@ -181,7 +181,7 @@ export class PricelineAdvancedService implements PlatformServiceInterface {
         page,
         sessionId,
         `Trying search for '${searchText}'.`,
-        this.platform,
+        this.platform
       );
       // Check if "no results" message is present
       /*const noResultsMessage = await this.checkForNoResultsMessage(page);
@@ -198,7 +198,7 @@ export class PricelineAdvancedService implements PlatformServiceInterface {
   async selectHotelFromList(page: Page, hotel: HotelDetails): Promise<boolean> {
     // Wait for the hotel list to be loaded
     await page.waitForSelector(
-      `div[id^="endLocation-typeahead-downshift-container-item-0"]`,
+      `div[id^="endLocation-typeahead-downshift-container-item-0"]`
     );
 
     // Extract hotel choices from the updated structure
@@ -212,7 +212,7 @@ export class PricelineAdvancedService implements PlatformServiceInterface {
             inner: option.innerHTML,
             all: option,
           }))
-          .filter((choice) => choice.id !== null),
+          .filter((choice) => choice.id !== null)
     );
 
     // Find the matching hotel name
@@ -239,7 +239,7 @@ export class PricelineAdvancedService implements PlatformServiceInterface {
 
   async useLLMToFindHotel(
     hotelChoices: { name: string; id: string }[],
-    hotel: HotelDetails,
+    hotel: HotelDetails
   ): Promise<{ name: string; id: string } | null> {
     const systemPrompt = `I need you to search a list of hotels, and return the listed name that matches exactly or most closely to a hotel I am looking for [QUERY]. 
       [LIST]
@@ -273,7 +273,7 @@ export class PricelineAdvancedService implements PlatformServiceInterface {
   updateUrl(
     url: string,
     newDates: { from: string; to: string }, // Dates in 'YYYY-MM-DD' format
-    occupancy: { adults: number; children?: number[] }, // Occupancy details
+    occupancy: { adults: number; children?: number[] } // Occupancy details
   ): string {
     const urlObj = new URL(url);
 

@@ -1,13 +1,14 @@
 import { forwardRef, Inject, Injectable } from "@nestjs/common";
-import { BrowserContext } from "playwright";
-import { v4 as uuidv4 } from "uuid";
 import * as fs from "fs";
-import { BrowserService } from "../../browser/browser/browser.service";
+import { BrowserContext } from "playwright";
+import { BrowserService } from "src/browser/browser.service";
+import { v4 as uuidv4 } from "uuid";
+
 @Injectable()
 export class SessionsService {
   constructor(
     @Inject(forwardRef(() => BrowserService))
-    private readonly browserService: BrowserService,
+    private readonly browserService: BrowserService
   ) {}
 
   async createSession(): Promise<string> {
@@ -60,7 +61,7 @@ export class SessionsService {
 
       for (const file of cookieFiles) {
         const cookies = JSON.parse(
-          fs.readFileSync(`./cookies/${file}`, "utf8"),
+          fs.readFileSync(`./cookies/${file}`, "utf8")
         );
         allCookies.push(...cookies);
       }

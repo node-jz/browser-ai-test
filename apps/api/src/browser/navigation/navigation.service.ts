@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { randomUUID } from "crypto";
 import { writeFileSync } from "fs";
 import { Page } from "playwright";
-import { BrowserService } from "src/browser/browser/browser.service";
+import { BrowserService } from "src/browser/browser.service";
 
 @Injectable()
 export class NavigationService {
